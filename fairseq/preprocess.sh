@@ -77,5 +77,5 @@ fairseq-preprocess \
 --testpref "$OUTPUTFOLDER/test.graph" \
 --destdir "$BINFOLDER/" \
 --workers 60 \
---srcdict dict.txt \
+--srcdict identical_dict.txt \
 --only-source;

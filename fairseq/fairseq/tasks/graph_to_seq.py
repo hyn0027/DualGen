@@ -81,6 +81,7 @@ def load_amr_dataset(
     # load graph info
     prefix = os.path.join(data_path, "{}.{}-{}.".format(split, "info", "None"))
     graphInfo = data_utils.load_indexed_dataset(prefix + "info", add_dict, dataset_impl)
+    # graphInfo need to - 3
     # graph_structure = []
     # for item in graphInfo:
     #     # item = item.split()
@@ -120,9 +121,6 @@ def load_amr_dataset(
     # assert len(src_dataset) == len(graph_structure)
     # assert len(src_dataset) == len(edge_dataset)
     # assert len(src_dataset) == len(node_dataset)
-    print(src_dataset[0])
-    print(tgt_dataset[0])
-    print(graphInfo[0])
     if prepend_bos:
         assert hasattr(add_dict, "bos_index")
         src_dataset = PrependTokenDataset(src_dataset, add_dict.bos())
