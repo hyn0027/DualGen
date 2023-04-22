@@ -5,7 +5,7 @@ WARMUP_UPDATES=500
 LR=3e-05
 MAX_TOKENS=2048
 UPDATE_FREQ=4
-BART_PATH=/home/hongyining/s_link/dualEnc_virtual/bart.base/model.pt
+BART_PATH=/home/hongyining/s_link/dualEnc_virtual/bart.large/model.pt
 DATA_BIN=/home/hongyining/s_link/dualEnc_virtual/AMR2.0bin
 
 CUDA_VISIBLE_DEVICES=0,1 fairseq-train $DATA_BIN \
@@ -17,7 +17,7 @@ CUDA_VISIBLE_DEVICES=0,1 fairseq-train $DATA_BIN \
     --share-decoder-input-output-embed \
     --reset-optimizer --reset-dataloader --reset-meters \
     --required-batch-size-multiple 1 \
-    --arch bartDualEnc_base \
+    --arch bart_large \
     --criterion label_smoothed_cross_entropy \
     --label-smoothing 0.1 \
     --dropout 0.1 --attention-dropout 0.1 \
@@ -26,4 +26,6 @@ CUDA_VISIBLE_DEVICES=0,1 fairseq-train $DATA_BIN \
     --lr-scheduler polynomial_decay --lr $LR --total-num-update $TOTAL_NUM_UPDATES --warmup-updates $WARMUP_UPDATES \
     --fp16 --update-freq $UPDATE_FREQ \
     --skip-invalid-size-inputs-valid-test \
+    --eval-bleu \
+    --eval-bleu-args '{"beam": 1}' \
     --find-unused-parameters;

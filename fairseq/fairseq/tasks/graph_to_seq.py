@@ -79,8 +79,8 @@ def load_amr_dataset(
     )
     
     # load graph info
-    prefix = os.path.join(data_path, "{}.{}-{}.".format(split, "info", "None"))
-    graphInfo = data_utils.load_indexed_dataset(prefix + "info", add_dict, dataset_impl)
+    # prefix = os.path.join(data_path, "{}.{}-{}.".format(split, "info", "None"))
+    # graphInfo = data_utils.load_indexed_dataset(prefix + "info", add_dict, dataset_impl)
     # graphInfo need to - 3
     # graph_structure = []
     # for item in graphInfo:
@@ -149,7 +149,21 @@ def load_amr_dataset(
             )
     tgt_dataset_sizes = tgt_dataset.sizes if tgt_dataset is not None else None
 
-    return None
+    return LanguagePairDataset(
+        src_dataset,
+        src_dataset.sizes,
+        add_dict,
+        tgt_dataset,
+        tgt_dataset_sizes,
+        add_dict,
+        left_pad_source=left_pad_source,
+        left_pad_target=left_pad_target,
+        align_dataset=align_dataset,
+        eos=eos,
+        num_buckets=num_buckets,
+        shuffle=shuffle,
+        pad_to_multiple=pad_to_multiple,
+    )
 
 @register_task('graph_to_seq')
 class GraphToSeq(FairseqTask):
@@ -360,7 +374,7 @@ class GraphToSeq(FairseqTask):
             hyps.append(decode(gen_out[i][0]['tokens']))
             refs.append(
                 decode(
-                    utils.strip_pad(sample['target'][i], self.tgt_dict.pad()),
+                    utils.strip_pad(sample['target'][i], self.add_dict.pad()),
                     escape_unk=True,  # don't count <unk> as matches to the hypo
                 )
             )
