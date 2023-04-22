@@ -260,8 +260,22 @@ class GraphToSeq(FairseqTask):
             pad_to_multiple=self.args.required_seq_len_multiple,
         )
     
-    def build_dataset_for_inference(self, src_tokens, src_lengths, graph_structure, edge, node):
-        pass
+
+    def build_dataset_for_inference(self, src_tokens, src_lengths):
+        
+        return LanguagePairDataset(
+            src_tokens,
+            src_lengths,
+            self.add_dict,
+        )
+    
+    # def build_dataset_for_inference(self, src_tokens, src_lengths, graph_structure, edge, node):
+    #     pass
+        # return GraphToTextDataset(
+        #     src_tokens, src_lengths, 
+        #     self.add_dict, 
+        #     graph_structure,
+        #     edge, node)
 
     def build_model(self, args, from_checkpoint=False):
         model = super().build_model(args, from_checkpoint)
