@@ -141,3 +141,5 @@ multirun
 outputs
 
 slurm*
+
+training/
