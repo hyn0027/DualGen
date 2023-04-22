@@ -5,3 +5,4 @@ pyvenv*
 AMR*/
 bart*/
 dual*/
+fairseq/checkpoints*/

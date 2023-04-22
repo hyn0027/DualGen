@@ -1,14 +1,14 @@
 #!/bin/sh
-# echo ?
-TOTAL_NUM_UPDATES=20000  
-WARMUP_UPDATES=500      
+TOTAL_NUM_UPDATES=4000  
+WARMUP_UPDATES=80      
 LR=3e-05
 MAX_TOKENS=2048
 UPDATE_FREQ=4
+LOG_INTERVAL=20
 BART_PATH=/home/hongyining/s_link/dualEnc_virtual/bart.large/model.pt
 DATA_BIN=/home/hongyining/s_link/dualEnc_virtual/AMR2.0bin
 
-CUDA_VISIBLE_DEVICES=0,1 fairseq-train $DATA_BIN \
+CUDA_VISIBLE_DEVICES=0,1,2,3 fairseq-train $DATA_BIN \
     --restore-file $BART_PATH \
     --max-tokens $MAX_TOKENS \
     --task graph_to_seq \
@@ -18,6 +18,7 @@ CUDA_VISIBLE_DEVICES=0,1 fairseq-train $DATA_BIN \
     --reset-optimizer --reset-dataloader --reset-meters \
     --required-batch-size-multiple 1 \
     --arch bart_large \
+    --log-interval $LOG_INTERVAL \
     --criterion label_smoothed_cross_entropy \
     --label-smoothing 0.1 \
     --dropout 0.1 --attention-dropout 0.1 \
