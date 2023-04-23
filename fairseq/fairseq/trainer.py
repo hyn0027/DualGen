@@ -582,16 +582,39 @@ class Trainer(object):
                         layer._prune_fc_layer(remove_index=remove_index)
                     logger.info(self.model)
 
-                self.model.load_state_dict(
-                    state["model"], strict=True, model_cfg=self.cfg.model
-                )
-                # save memory for later steps
-                del state["model"]
-                if utils.has_parameters(self.get_criterion()):
-                    self.get_criterion().load_state_dict(
-                        state["criterion"], strict=True
+                try:
+                    self.model.load_state_dict(
+                        state["model"], strict=True, model_cfg=self.cfg.model
                     )
-                    del state["criterion"]
+                    # save memory for later steps
+                    del state["model"]
+                    if utils.has_parameters(self.get_criterion()):
+                        self.get_criterion().load_state_dict(
+                            state["criterion"], strict=True
+                        )
+                        del state["criterion"]
+                except:
+                    import copy
+                    new_state = copy.deepcopy(state["model"]) 
+                    for key in state["model"]:
+                        if key.find("encoder.layers") != -1:
+                            new_state[key.replace(
+                                    "encoder.layers",
+                                    "encoder.graph_layers")
+                                ] = state["model"][key].clone()
+                        else:
+                            new_state[key] = copy.deepcopy(state["model"][key]) # TODO: clone? deepcopy?
+                    self.model.load_state_dict(
+                        new_state, strict=True, model_cfg=self.cfg.model
+                    )
+                    # save memory for later steps
+                    del new_state
+                    del state["model"]
+                    if utils.has_parameters(self.get_criterion()):
+                        self.get_criterion().load_state_dict(
+                            state["criterion"], strict=True
+                        )
+                        del state["criterion"]
 
             except Exception:
                 raise Exception(

@@ -11,7 +11,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 fairseq-generate $DATA_BIN \
     --beam 5 \
     --post-process \
     --remove-bpe \
-    --results-path /home/hongyining/s_link/dualEnc_virtual/fairseq/infer\
+    --results-path /home/hongyining/s_link/dualEnc_virtual/fairseq/infer1 \
     --find-unused-parameters;
 
 

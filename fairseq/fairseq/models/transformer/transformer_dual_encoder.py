@@ -14,9 +14,20 @@ from fairseq.models.transformer.transformer_config import (
     DEFAULT_MAX_TARGET_POSITIONS,
     DEFAULT_MIN_PARAMS_TO_WRAP,
 )
+
+import torch.nn as nn
+from fairseq.models.transformer import TransformerEncoderBase
+
 from fairseq.models.transformer.transformer_base import (
     TransformerModelBase,
 )
+from typing import Optional
+
+from fairseq.modules import (
+    LayerDropModuleList,
+)
+
+import torch
 
 # TODO 重写覆盖encoder的forward
 @register_model("transformerDualEnc")
@@ -140,9 +151,7 @@ class TransformerDualEncModel(TransformerModelBase):
 
     @classmethod
     def build_encoder(cls, args, src_dict, embed_tokens):
-        return super().build_encoder(
-            TransformerConfig.from_namespace(args), src_dict, embed_tokens
-        )
+        return GraphToTextEncoder(TransformerConfig.from_namespace(args), src_dict, embed_tokens)
 
     @classmethod
     def build_decoder(cls, args, tgt_dict, embed_tokens):
@@ -150,7 +159,197 @@ class TransformerDualEncModel(TransformerModelBase):
             TransformerConfig.from_namespace(args), tgt_dict, embed_tokens
         )
 
+    def forward(
+        self,
+        src_tokens,
+        src_lengths,
+        prev_output_tokens,
+        graph_structure,
+        node_token_list,
+        edge_tokens,
+        return_all_hiddens: bool = True,
+        features_only: bool = False,
+        alignment_layer: Optional[int] = None,
+        alignment_heads: Optional[int] = None,
+    ):
+        """
+        Run the forward pass for an encoder-decoder model.
 
+        Copied from the base class, but without ``**kwargs``,
+        which are not supported by TorchScript.
+        """
+        encoder_out = self.encoder(
+            src_tokens, src_lengths=src_lengths, 
+            graph_structure=graph_structure,
+            node_token_list=node_token_list,
+            edge_tokens=edge_tokens,
+            return_all_hiddens=return_all_hiddens
+        )
+        decoder_out = self.decoder(
+            prev_output_tokens,
+            encoder_out=encoder_out,
+            features_only=features_only,
+            alignment_layer=alignment_layer,
+            alignment_heads=alignment_heads,
+            src_lengths=src_lengths,
+            return_all_hiddens=return_all_hiddens,
+        )
+        return decoder_out
+    
+class GraphToTextEncoder(TransformerEncoderBase):
+    """
+    Transformer encoder consisting of *args.encoder_layers* layers. Each layer
+    is a :class:`TransformerEncoderLayer`.
+
+    Args:
+        args (argparse.Namespace): parsed command-line arguments
+        dictionary (~fairseq.data.Dictionary): encoding dictionary
+        embed_tokens (torch.nn.Embedding): input embedding
+    """
+    def __init__(self, cfg, dictionary, embed_tokens, return_fc=False):
+        super().__init__(cfg, dictionary, embed_tokens, return_fc)
+        if self.encoder_layerdrop > 0.0:
+            self.graph_layers = LayerDropModuleList(p=self.encoder_layerdrop)
+        else:
+            self.graph_layers = nn.ModuleList([])
+        self.graph_layers.extend(
+            [self.build_encoder_layer(cfg) for i in range(cfg.encoder.layers)]
+        )
+    
+    def forward(
+        self,
+        src_tokens,
+        src_lengths: Optional[torch.Tensor] = None,
+        graph_structure = None,
+        node_token_list = None,
+        edge_tokens = None,
+        return_all_hiddens: bool = False,
+        token_embeddings: Optional[torch.Tensor] = None,
+    ):
+        """
+        Args:
+            src_tokens (LongTensor): tokens in the source language of shape
+                `(batch, src_len)`
+            src_lengths (torch.LongTensor): lengths of each source sentence of
+                shape `(batch)`
+            return_all_hiddens (bool, optional): also return all of the
+                intermediate hidden states (default: False).
+            token_embeddings (torch.Tensor, optional): precomputed embeddings
+                default `None` will recompute embeddings
+
+        Returns:
+            dict:
+                - **encoder_out** (Tensor): the last encoder layer's output of
+                  shape `(src_len, batch, embed_dim)`
+                - **encoder_padding_mask** (ByteTensor): the positions of
+                  padding elements of shape `(batch, src_len)`
+                - **encoder_embedding** (Tensor): the (scaled) embedding lookup
+                  of shape `(batch, src_len, embed_dim)`
+                - **encoder_states** (List[Tensor]): all intermediate
+                  hidden states of shape `(src_len, batch, embed_dim)`.
+                  Only populated if *return_all_hiddens* is True.
+        """
+        return self.forward_scriptable(
+            self.layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
+        ) # TODO
+
+
+    def forward_scriptable(
+        self,
+        layers,
+        src_tokens,
+        src_lengths: Optional[torch.Tensor] = None,
+        return_all_hiddens: bool = False,
+        token_embeddings: Optional[torch.Tensor] = None,
+    ):
+        """
+        Args:
+            src_tokens (LongTensor): tokens in the source language of shape
+                `(batch, src_len)`
+            src_lengths (torch.LongTensor): lengths of each source sentence of
+                shape `(batch)`
+            return_all_hiddens (bool, optional): also return all of the
+                intermediate hidden states (default: False).
+            token_embeddings (torch.Tensor, optional): precomputed embeddings
+                default `None` will recompute embeddings
+
+        Returns:
+            dict:
+                - **encoder_out** (Tensor): the last encoder layer's output of
+                  shape `(src_len, batch, embed_dim)`
+                - **encoder_padding_mask** (ByteTensor): the positions of
+                  padding elements of shape `(batch, src_len)`
+                - **encoder_embedding** (Tensor): the (scaled) embedding lookup
+                  of shape `(batch, src_len, embed_dim)`
+                - **encoder_states** (List[Tensor]): all intermediate
+                  hidden states of shape `(src_len, batch, embed_dim)`.
+                  Only populated if *return_all_hiddens* is True.
+        """
+        # compute padding mask
+        encoder_padding_mask = src_tokens.eq(self.padding_idx)
+        has_pads = (
+            torch.tensor(src_tokens.device.type == "xla") or encoder_padding_mask.any()
+        )
+        # Torchscript doesn't handle bool Tensor correctly, so we need to work around.
+        if torch.jit.is_scripting():
+            has_pads = torch.tensor(1) if has_pads else torch.tensor(0)
+
+        x, encoder_embedding = self.forward_embedding(src_tokens, token_embeddings)
+
+        # account for padding while computing the representation
+        x = x * (
+            1 - encoder_padding_mask.unsqueeze(-1).type_as(x) * has_pads.type_as(x)
+        )
+
+        # B x T x C -> T x B x C
+        x = x.transpose(0, 1)
+
+        encoder_states = []
+        fc_results = []
+
+        if return_all_hiddens:
+            encoder_states.append(x)
+
+        # encoder layers
+        for layer in layers:
+            lr = layer(
+                x, encoder_padding_mask=encoder_padding_mask if has_pads else None
+            )
+
+            if isinstance(lr, tuple) and len(lr) == 2:
+                x, fc_result = lr
+            else:
+                x = lr
+                fc_result = None
+
+            if return_all_hiddens and not torch.jit.is_scripting():
+                assert encoder_states is not None
+                encoder_states.append(x)
+                fc_results.append(fc_result)
+
+        if self.layer_norm is not None:
+            x = self.layer_norm(x)
+
+        # The Pytorch Mobile lite interpreter does not supports returning NamedTuple in
+        # `forward` so we use a dictionary instead.
+        # TorchScript does not support mixed values so the values are all lists.
+        # The empty list is equivalent to None.
+        src_lengths = (
+            src_tokens.ne(self.padding_idx)
+            .sum(dim=1, dtype=torch.int32)
+            .reshape(-1, 1)
+            .contiguous()
+        )
+        return {
+            "encoder_out": [x],  # T x B x C
+            "encoder_padding_mask": [encoder_padding_mask],  # B x T
+            "encoder_embedding": [encoder_embedding],  # B x T x C
+            "encoder_states": encoder_states,  # List[T x B x C]
+            "fc_results": fc_results,  # List[T x B x C]
+            "src_tokens": [],
+            "src_lengths": [src_lengths],
+        }
+    
 # architectures
 
 
