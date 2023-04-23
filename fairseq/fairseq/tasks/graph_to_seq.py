@@ -78,6 +78,7 @@ def load_amr_dataset(
         prefix + "target", add_dict, dataset_impl
     )
     
+    # TODO
     # load graph info
     # prefix = os.path.join(data_path, "{}.{}-{}.".format(split, "info", "None"))
     # graphInfo = data_utils.load_indexed_dataset(prefix + "info", add_dict, dataset_impl)
@@ -268,7 +269,7 @@ class GraphToSeq(FairseqTask):
             src_lengths,
             self.add_dict,
         )
-    
+    # TODO
     # def build_dataset_for_inference(self, src_tokens, src_lengths, graph_structure, edge, node):
     #     pass
         # return GraphToTextDataset(

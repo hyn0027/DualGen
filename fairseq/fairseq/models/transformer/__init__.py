@@ -24,6 +24,7 @@ from .transformer_legacy import (
     transformer_wmt_en_de_big_t2t,
 )
 from .transformer_base import TransformerModelBase, Embedding
+from .transformer_dual_encoder import TransformerDualEncModel
 
 
 __all__ = [
@@ -34,6 +35,7 @@ __all__ = [
     "TransformerEncoder",
     "TransformerEncoderBase",
     "TransformerModel",
+    "TransformerDualEncModel",
     "Embedding",
     "Linear",
     "base_architecture",

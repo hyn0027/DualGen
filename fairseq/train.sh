@@ -17,7 +17,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 fairseq-train $DATA_BIN \
     --share-decoder-input-output-embed \
     --reset-optimizer --reset-dataloader --reset-meters \
     --required-batch-size-multiple 1 \
-    --arch bart_large \
+    --arch bartDualEnc_large \
     --log-interval $LOG_INTERVAL \
     --criterion label_smoothed_cross_entropy \
     --label-smoothing 0.1 \
