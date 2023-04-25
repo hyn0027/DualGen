@@ -11,6 +11,7 @@ DATA_BIN=/home/hongyining/s_link/dualEnc_virtual/AMR2.0bin
 CUDA_VISIBLE_DEVICES=0,1,2,3 fairseq-train $DATA_BIN \
     --restore-file $BART_PATH \
     --max-tokens $MAX_TOKENS \
+    --save-dir checkpoint1 \
     --task graph_to_seq \
     --layernorm-embedding \
     --share-all-embeddings \

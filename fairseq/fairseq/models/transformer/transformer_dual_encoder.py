@@ -29,7 +29,6 @@ from fairseq.modules import (
 
 import torch
 
-# TODO 重写覆盖encoder的forward
 @register_model("transformerDualEnc")
 class TransformerDualEncModel(TransformerModelBase):
     """
@@ -164,9 +163,11 @@ class TransformerDualEncModel(TransformerModelBase):
         src_tokens,
         src_lengths,
         prev_output_tokens,
-        graph_structure,
-        node_token_list,
-        edge_tokens,
+        graph_structures,
+        nodes,
+        nodes_info,
+        edges,
+        edges_info,
         return_all_hiddens: bool = True,
         features_only: bool = False,
         alignment_layer: Optional[int] = None,
@@ -180,9 +181,11 @@ class TransformerDualEncModel(TransformerModelBase):
         """
         encoder_out = self.encoder(
             src_tokens, src_lengths=src_lengths, 
-            graph_structure=graph_structure,
-            node_token_list=node_token_list,
-            edge_tokens=edge_tokens,
+            graph_structures=graph_structures,
+            nodes=nodes,
+            nodes_info=nodes_info,
+            edges=edges,
+            edges_info=edges_info,
             return_all_hiddens=return_all_hiddens
         )
         decoder_out = self.decoder(
@@ -191,7 +194,7 @@ class TransformerDualEncModel(TransformerModelBase):
             features_only=features_only,
             alignment_layer=alignment_layer,
             alignment_heads=alignment_heads,
-            src_lengths=src_lengths,
+            src_lengths=src_lengths, # TODO 是否需要修改
             return_all_hiddens=return_all_hiddens,
         )
         return decoder_out
@@ -220,9 +223,11 @@ class GraphToTextEncoder(TransformerEncoderBase):
         self,
         src_tokens,
         src_lengths: Optional[torch.Tensor] = None,
-        graph_structure = None,
-        node_token_list = None,
-        edge_tokens = None,
+        graph_structures = None,
+        nodes = None,
+        nodes_info = None,
+        edges = None,
+        edges_info = None,
         return_all_hiddens: bool = False,
         token_embeddings: Optional[torch.Tensor] = None,
     ):
@@ -249,10 +254,40 @@ class GraphToTextEncoder(TransformerEncoderBase):
                   hidden states of shape `(src_len, batch, embed_dim)`.
                   Only populated if *return_all_hiddens* is True.
         """
-        return self.forward_scriptable(
+        if token_embeddings != None:
+            print("not implemented at /home/hongyining/s_link/dualEnc_virtual/fairseq/fairseq/models/transformer/transformer_dual_encoder.py, forward")
+            exit(-2)
+        s2s_output = self.forward_scriptable(
             self.layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
-        ) # TODO
+        )
 
+        g2s_output = self.graph_foward_scriptable(graph_structures, nodes, nodes_info, edges, edges_info)
+        # print(src_tokens.size())
+        exit(-1)
+
+        return s2s_output # TODO
+
+
+    def graph_foward_scriptable(self, graph_structures, nodes, nodes_info, edges, edges_info):
+        batch_size = len(graph_structures)
+        for i in range(batch_size):
+            print(nodes[i][None, :].size())
+            token_embeddings_nodes_tmp = self.embed_tokens(nodes[i][None, :])
+            token_embeddings_edges_tmp = self.embed_tokens(edges[i][None, :])
+            token_embeddings_nodes_tmp = token_embeddings_nodes_tmp[0]
+            token_embeddings_edges_tmp = token_embeddings_edges_tmp[0]
+            print(token_embeddings_nodes_tmp.size())
+            # print(nodes_info[i])
+            # print(torch.sum(nodes_info[i]))
+            nodes = []
+            prev_idx = 0
+            for idx in range(len(nodes_info) - 1):
+                num_node_tokens = int(nodes_info[i][idx])
+                nodes.append(token_embeddings_nodes_tmp[prev_idx: prev_idx + num_node_tokens].mean(0))
+                print(nodes[-1].size())
+                prev_idx += num_node_tokens
+            nodes = torch.stack(nodes)
+        pass
 
     def forward_scriptable(
         self,
@@ -286,6 +321,7 @@ class GraphToTextEncoder(TransformerEncoderBase):
                   Only populated if *return_all_hiddens* is True.
         """
         # compute padding mask
+        print(src_tokens.size())
         encoder_padding_mask = src_tokens.eq(self.padding_idx)
         has_pads = (
             torch.tensor(src_tokens.device.type == "xla") or encoder_padding_mask.any()

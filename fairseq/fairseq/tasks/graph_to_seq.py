@@ -18,7 +18,7 @@ from fairseq.logging import metrics
 from fairseq.data import (
     AppendTokenDataset,
     ConcatDataset,
-    LanguagePairDataset,
+    GraphToSeqDataset,
     PrependTokenDataset,
     StripTokenDataset,
     TruncateDataset,
@@ -80,48 +80,31 @@ def load_amr_dataset(
     
     # TODO
     # load graph info
-    # prefix = os.path.join(data_path, "{}.{}-{}.".format(split, "info", "None"))
-    # graphInfo = data_utils.load_indexed_dataset(prefix + "info", add_dict, dataset_impl)
-    # graphInfo need to - 3
-    # graph_structure = []
-    # for item in graphInfo:
-    #     # item = item.split()
-    #     graph_structure.append({})
-    #     graph_structure[-1]["node_num"] = int(item[0])
-    #     graph_structure[-1]["root"] = int(item[1])
-    #     graph_structure[-1]["edge"] = []
-    #     i = 2
-    #     while i < len(item):
-    #         graph_structure[-1]["edge"].append(torch.tensor([int(item[i]), int(item[i + 1])], dtype=torch.long))
-    #         i += 2
-    #     if len(graph_structure[-1]["edge"]) > 0:
-    #         graph_structure[-1]["edge"] = torch.stack(graph_structure[-1]["edge"])
-    #         graph_structure[-1]["edge"] = graph_structure[-1]["edge"].transpose(0, 1)
-    #     else:
-    #         graph_structure[-1]["edge"] = torch.tensor([[], []], dtype=torch.long)
+    prefix = os.path.join(data_path, "{}.{}-{}.".format(split, "info", "None"))
+    graphInfo = data_utils.load_indexed_dataset(prefix + "info", add_dict, dataset_impl)
+    prefix = os.path.join(data_path, "{}.{}-{}.".format(split, "edge", "None"))
+    edges = data_utils.load_indexed_dataset(prefix + "edge", add_dict, dataset_impl)
+    prefix = os.path.join(data_path, "{}.{}-{}.".format(split, "node", "None"))
+    nodes = data_utils.load_indexed_dataset(prefix + "node", add_dict, dataset_impl)
+
+    prefix = os.path.join(data_path, "{}.{}-{}.".format(split, "edge.info", "None"))
+    edges_info = data_utils.load_indexed_dataset(prefix + "edge.info", add_dict, dataset_impl)
     
-    # edge_dataset = data_utils.load_indexed_dataset(prefix + "edge", add_dict, dataset_impl)
-    # # load node
-    # node_list = data_utils.load_indexed_dataset(prefix + "node", add_dict, dataset_impl)
-    # cnt = 0
-    # node_dataset = []
-    # for item in graph_structure:
-    #     node_dataset.append([])
-    #     for j in range(item["node_num"]):
-    #         node_dataset[-1].append(node_list[cnt][:-1])
-    #         cnt += 1
-    #     cnt += 1
+    prefix = os.path.join(data_path, "{}.{}-{}.".format(split, "node.info", "None"))
+    nodes_info = data_utils.load_indexed_dataset(prefix + "node.info", add_dict, dataset_impl)
 
     logger.info('{} {} {} examples'.format(
         data_path, split, len(src_dataset)
     ))
-
+    
     # ------------load dataset end--------------------------
 
     assert len(src_dataset) == len(tgt_dataset)
-    # assert len(src_dataset) == len(graph_structure)
-    # assert len(src_dataset) == len(edge_dataset)
-    # assert len(src_dataset) == len(node_dataset)
+    assert len(src_dataset) == len(graphInfo)
+    assert len(src_dataset) == len(edges)
+    assert len(src_dataset) == len(nodes)
+    assert len(src_dataset) == len(edges_info)
+    assert len(src_dataset) == len(nodes_info)
     if prepend_bos:
         assert hasattr(add_dict, "bos_index")
         src_dataset = PrependTokenDataset(src_dataset, add_dict.bos())
@@ -150,13 +133,19 @@ def load_amr_dataset(
             )
     tgt_dataset_sizes = tgt_dataset.sizes if tgt_dataset is not None else None
 
-    return LanguagePairDataset(
+    return GraphToSeqDataset(
         src_dataset,
         src_dataset.sizes,
         add_dict,
+        graphInfo,
+        edges,
+        edges_info,
+        edges.sizes,
+        nodes,
+        nodes_info,
+        nodes.sizes,
         tgt_dataset,
         tgt_dataset_sizes,
-        add_dict,
         left_pad_source=left_pad_source,
         left_pad_target=left_pad_target,
         align_dataset=align_dataset,
@@ -261,22 +250,12 @@ class GraphToSeq(FairseqTask):
             pad_to_multiple=self.args.required_seq_len_multiple,
         )
     
-
-    def build_dataset_for_inference(self, src_tokens, src_lengths):
-        
-        return LanguagePairDataset(
-            src_tokens,
-            src_lengths,
-            self.add_dict,
-        )
-    # TODO
-    # def build_dataset_for_inference(self, src_tokens, src_lengths, graph_structure, edge, node):
-    #     pass
-        # return GraphToTextDataset(
-        #     src_tokens, src_lengths, 
-        #     self.add_dict, 
-        #     graph_structure,
-        #     edge, node)
+    def build_dataset_for_inference(self, src_tokens, src_lengths, graph_structures, edges, edges_info, nodes, nodes_info):
+        return GraphToSeqDataset(
+            src_tokens, src_lengths, 
+            self.add_dict, 
+            graph_structures,
+            edges, edges_info, nodes, nodes_info)
 
     def build_model(self, args, from_checkpoint=False):
         model = super().build_model(args, from_checkpoint)

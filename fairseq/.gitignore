@@ -33,6 +33,7 @@ wheels/
 
 # Checkpoints
 checkpoints
+checkpoint*
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

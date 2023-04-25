@@ -77,15 +77,17 @@ class BARTDualEncHubInterface(GeneratorHubInterface):
             return sentences[0]
         return sentences
 
-    def _build_sample(self, src_tokens: List[torch.LongTensor], graph_structure, edge, node):
+    def _build_sample(self, src_tokens: List[torch.LongTensor], graph_structures, edges, edges_info, nodes, nodes_info):
         # assert torch.is_tensor(src_tokens)
         dataset = self.task.build_dataset_for_inference(
             src_tokens,
             [x.numel() for x in src_tokens],
-            graph_structure,
-            edge,
-            node,
-        ) # TODO 修改task
+            graph_structures,
+            edges,
+            edges_info,
+            nodes,
+            nodes_info,
+        ) 
         sample = dataset.collater(dataset)
         sample = utils.apply_to_sample(lambda tensor: tensor.to(self.device), sample)
         return sample
@@ -99,18 +101,18 @@ class BARTDualEncHubInterface(GeneratorHubInterface):
     #     batched_hypos = self.generate(tokenized_sentences, beam, verbose, **kwargs)
     #     return [self.decode(hypos[0]["tokens"]) for hypos in batched_hypos]
     def sample(
-        self, sentences: List[torch.LongTensor], graph_structure, edges, nodes, beam: int = 1, verbose: bool = False, **kwargs
+        self, sentences: List[torch.LongTensor], graph_structures, edges, edges_info, nodes, nodes_info, beam: int = 1, verbose: bool = False, **kwargs
     ): # TODO check if it's correct
         tokenized_sentences = [self.encode(sentence) for sentence in sentences]
         tokenized_edges = [self.encode(edge) for edge in edges]
-        tokenized_nodes = [self.encoder(node) for node in nodes]
-        batched_hypos = self.generate(tokenized_sentences, graph_structure, tokenized_edges, tokenized_nodes, beam, verbose, **kwargs)
+        tokenized_nodes = [self.encode(node) for node in nodes]
+        batched_hypos = self.generate(tokenized_sentences, graph_structures, tokenized_edges, edges_info, tokenized_nodes, nodes_info, beam, verbose, **kwargs)
         return [self.decode(hypos[0]["tokens"]) for hypos in batched_hypos]
 
     def generate(
         self,
         tokenized_sentences: List[torch.LongTensor],
-        graph_structure, edge_tokens, node_tokens,
+        graph_structures, edges, edges_info, nodes, nodes_info,
         *args,
         inference_step_args=None,
         skip_invalid_size_inputs=False,
@@ -120,16 +122,18 @@ class BARTDualEncHubInterface(GeneratorHubInterface):
         if "prefix_tokens" in inference_step_args:
             raise NotImplementedError("prefix generation not implemented for BART")
         res = []
-        for batch in self._build_batches(tokenized_sentences, graph_structure, edge_tokens, node_tokens, skip_invalid_size_inputs):
+        for batch in self._build_batches(tokenized_sentences, graph_structures, edges, nodes, skip_invalid_size_inputs):
             src_tokens = batch["net_input"]["src_tokens"]
             inference_step_args["prefix_tokens"] = src_tokens.new_full(
                 (src_tokens.size(0), 1), fill_value=self.task.source_dictionary.bos()
             ).to(device=self.device)
             results = self.super_generate(
                 src_tokens,
-                graph_structure,
-                edge_tokens,
-                node_tokens,
+                graph_structures,
+                edges,
+                edges_info,
+                nodes,
+                nodes_info,
                 *args,
                 inference_step_args=inference_step_args,
                 skip_invalid_size_inputs=skip_invalid_size_inputs,
@@ -143,9 +147,11 @@ class BARTDualEncHubInterface(GeneratorHubInterface):
     def super_generate(
         self,
         tokenized_sentences: List[torch.LongTensor],
-        graph_structure,
-        edge_tokens,
-        node_tokens,
+        graph_structures,
+        edges,
+        edges_info,
+        nodes,
+        nodes_info,
         beam: int = 5,
         verbose: bool = False,
         skip_invalid_size_inputs=False,
@@ -155,7 +161,7 @@ class BARTDualEncHubInterface(GeneratorHubInterface):
     ) -> List[List[Dict[str, torch.Tensor]]]: # TODO check if it's correct
         if torch.is_tensor(tokenized_sentences) and tokenized_sentences.dim() == 1:
             return self.super_generate(
-                tokenized_sentences.unsqueeze(0), graph_structure, edge_tokens, node_tokens, beam=beam, verbose=verbose, **kwargs
+                tokenized_sentences.unsqueeze(0), graph_structures, edges, edges_info, nodes, nodes_info, beam=beam, verbose=verbose, **kwargs
             )[0]
 
         # build generator using current args as well as any kwargs
@@ -172,7 +178,7 @@ class BARTDualEncHubInterface(GeneratorHubInterface):
 
         inference_step_args = inference_step_args or {}
         results = []
-        for batch in self._build_batches(tokenized_sentences, graph_structure, edge_tokens, node_tokens, skip_invalid_size_inputs):
+        for batch in self._build_batches(tokenized_sentences, graph_structures, edges, edges_info, nodes, nodes_info, skip_invalid_size_inputs):
             batch = utils.apply_to_sample(lambda t: t.to(self.device), batch)
             translations = self.task.inference_step(
                 generator, self.models, batch, **inference_step_args
@@ -221,11 +227,11 @@ class BARTDualEncHubInterface(GeneratorHubInterface):
 
 
     def _build_batches(
-        self, tokens: List[List[int]], graph_structure, edge_tokens, node_tokens, skip_invalid_size_inputs: bool
+        self, tokens: List[List[int]], graph_structures, edges, edges_info, nodes, nodes_info, skip_invalid_size_inputs: bool
     ) -> Iterator[Dict[str, Any]]: # TODO check if it's correct
         lengths = torch.LongTensor([t.numel() for t in tokens])
         batch_iterator = self.task.get_batch_iterator(
-            dataset=self.task.build_dataset_for_inference(tokens, lengths, graph_structure, edge_tokens, node_tokens),
+            dataset=self.task.build_dataset_for_inference(tokens, lengths, graph_structures, edges, edges_info, nodes, nodes_info),
             max_tokens=self.cfg.dataset.max_tokens,
             max_sentences=self.cfg.dataset.batch_size,
             max_positions=self.max_positions,
@@ -235,14 +241,16 @@ class BARTDualEncHubInterface(GeneratorHubInterface):
         return batch_iterator
     
     def extract_features(
-        self, tokens: torch.LongTensor, graph_structure, edge_tokens, node_tokens, return_all_hiddens: bool = False
+        self, tokens: torch.LongTensor, graph_structures, edges, edges_info, nodes, nodes_info, return_all_hiddens: bool = False
     ) -> torch.Tensor:
         logger.warning("Unfinished at /home/hongyining/s_link/dualEnc_virtual/fairseq/fairseq/models/bartDualEnc/hub_interface.py")
         exit(-2)
         if tokens.dim() == 1:
             tokens = tokens.unsqueeze(0)
-            edge_tokens = edge_tokens.unsqueeze(0)
-            node_tokens = node_tokens.unsqueeze(0)
+            edges = edges.unsqueeze(0)
+            nodes = nodes.unsqueeze(0)
+            edges_info = edges_info.unsqueeze(0)
+            nodes_info = nodes_info.unsqueeze(0)
         if tokens.size(-1) > min(self.model.max_positions()):
             raise ValueError(
                 "tokens exceeds maximum length: {} > {}".format(
@@ -250,9 +258,11 @@ class BARTDualEncHubInterface(GeneratorHubInterface):
                 )
             )
         tokens.to(device=self.device),
-        edge_tokens.to(device=self.device)
-        node_tokens.to(device=self.device)
-        graph_structure.to(device=self.device)
+        edges.to(device=self.device)
+        edges_info.to(device=self.device)
+        nodes.to(device=self.device)
+        nodes_info.to(device=self.device)
+        graph_structures.to(device=self.device)
         prev_output_tokens = tokens.clone()
 
         prev_output_tokens[:, 0] = tokens.gather(
@@ -265,9 +275,11 @@ class BARTDualEncHubInterface(GeneratorHubInterface):
             src_tokens=tokens,
             src_lengths=None,
             prev_output_tokens=prev_output_tokens,
-            graph_structure=graph_structure,
-            node_token_list=node_tokens,
-            edge_token_list=edge_tokens,
+            graph_structures=graph_structures,
+            nodes=nodes,
+            edges_info=edges_info,
+            nodes_info=nodes_info,
+            edges=edges,
             features_only=True,
             return_all_hiddens=return_all_hiddens,
         )
@@ -285,12 +297,12 @@ class BARTDualEncHubInterface(GeneratorHubInterface):
             name, num_classes=num_classes, embedding_size=embedding_size, **kwargs
         )
 
-    def predict(self, head: str, tokens: torch.LongTensor, graph_structure, node_tokens, edge_tokens, return_logits: bool = False):
+    def predict(self, head: str, tokens: torch.LongTensor, graph_structures, nodes, nodes_info, edges, edges_info, return_logits: bool = False):
         logger.warning("Unfinished at /home/hongyining/s_link/dualEnc_virtual/fairseq/fairseq/models/bartDualEnc/hub_interface.py")
         exit(-2)
         if tokens.dim() == 1:
             tokens = tokens.unsqueeze(0)
-        features = self.extract_features(tokens.to(device=self.device), graph_structure, edge_tokens, node_tokens)
+        features = self.extract_features(tokens.to(device=self.device), graph_structures, edges, edges_info, nodes, nodes_info)
         sentence_representation = features[
             tokens.eq(self.task.source_dictionary.eos()), :
         ].view(features.size(0), -1, features.size(-1))[:, -1, :]
