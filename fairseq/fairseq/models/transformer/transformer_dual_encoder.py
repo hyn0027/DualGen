@@ -261,15 +261,13 @@ class GraphToTextEncoder(TransformerEncoderBase):
             self.layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
         )
 
-        g2s_output = self.graph_foward_scriptable(graph_structures, nodes, nodes_info, edges, edges_info)
-        # print(src_tokens.size())
-        exit(-1)
-
-        return s2s_output # TODO
+        g2s_output = self.graph_foward_scriptable(self.graph_layers, graph_structures, nodes, nodes_info, edges, edges_info, return_all_hiddens)
+    
+        return g2s_output # TODO
 
     def dfs(self, p, graph_structure):
         res = [{"type": "node", "id": p}]
-        if self.visited[p]:
+        if self.visited[int(p)]:
             return res
         self.visited[p] = True
         for i in range(int(len(graph_structure) / 2)):
@@ -280,8 +278,17 @@ class GraphToTextEncoder(TransformerEncoderBase):
                 res = res + self.dfs(e, graph_structure)
         return res
 
-    def graph_foward_scriptable(self, graph_structures, nodes, nodes_info, edges, edges_info):
+    def graph_foward_scriptable(
+        self,
+        layers,
+        graph_structures, 
+        nodes, nodes_info, 
+        edges, edges_info,
+        return_all_hiddens: bool = False,
+    ):
         batch_size = len(graph_structures)
+        token_embeddings = []
+        max_length = 0
         for i in range(batch_size):
             token_embeddings_nodes_tmp = self.embed_tokens(nodes[i][None, :])
             token_embeddings_edges_tmp = self.embed_tokens(edges[i][None, :])
@@ -301,14 +308,13 @@ class GraphToTextEncoder(TransformerEncoderBase):
                 num_edge_tokens = int(edges_info[i][idx])
                 token_embeddings_edges.append(token_embeddings_edges_tmp[prev_idx: prev_idx + num_edge_tokens].mean(0))
                 prev_idx += num_edge_tokens
-            token_embeddings_edges = torch.stack(token_embeddings_edges)
+            if len(token_embeddings_edges) > 0:
+                token_embeddings_edges = torch.stack(token_embeddings_edges)
+            else:
+                token_embeddings_edges = torch.ones((0, 1024), device=token_embeddings_nodes.get_device(), dtype=token_embeddings_nodes.dtype)
 
-            self.visited = [False for _i in range(int((len(graph_structures[i]) - 3) / 2))]
+            self.visited = [False for _i in range(int(graph_structures[i][0]))]
             dfs_path = self.dfs(graph_structures[i][1], graph_structures[i][2: -1])
-            print(graph_structures[i])
-            print(graph_structures[i].size())
-            print(token_embeddings_nodes.size())
-            print(token_embeddings_edges.size())
             token_embeddings_single = []
             for item in dfs_path:
                 if item["type"] == "node":
@@ -316,9 +322,102 @@ class GraphToTextEncoder(TransformerEncoderBase):
                 elif item["type"] == "edge":
                     token_embeddings_single.append(token_embeddings_edges[int(item["id"])])
             token_embeddings_single = torch.stack(token_embeddings_single)
-            print(token_embeddings_single.size())
-            print("--------------")
-        pass
+            token_embeddings.append(token_embeddings_single)
+            max_length = max(max_length, token_embeddings_single.size(0))
+        encoder_padding_mask = []
+        src_tokens = []
+        for idx in range(batch_size):
+            encoder_padding_mask.append(
+                torch.tensor(
+                    [False for _i in range(token_embeddings[idx].size(0))]
+                    + [True for _i in range(token_embeddings[idx].size(0), max_length)], 
+                    device=token_embeddings[idx].get_device(),
+                    dtype=torch.bool
+                )
+            )
+            src_tokens.append(
+                torch.tensor(
+                    [10 for _i in range(token_embeddings[idx].size(0))]
+                    + [self.padding_idx for _i in range(token_embeddings[idx].size(0), max_length)], 
+                    device=token_embeddings[idx].get_device(),
+                    dtype=torch.long
+                )
+            )
+            padding_token = self.embed_tokens(
+                torch.tensor(
+                    [[self.padding_idx for _i in range(token_embeddings[idx].size(0), max_length)]],
+                    device=token_embeddings[idx].get_device(),
+                    dtype=torch.long,
+                )
+            )[0]
+            token_embeddings[idx] = torch.cat((token_embeddings[idx], padding_token), 0)
+            # TODO 要不要+eos
+        token_embeddings = torch.stack(token_embeddings)
+        encoder_padding_mask = torch.stack(encoder_padding_mask)
+        src_tokens = torch.stack(src_tokens)
+
+        has_pads = (
+            torch.tensor(src_tokens.device.type == "xla") or encoder_padding_mask.any()
+        )
+        # Torchscript doesn't handle bool Tensor correctly, so we need to work around.
+        if torch.jit.is_scripting():
+            has_pads = torch.tensor(1) if has_pads else torch.tensor(0)
+
+        x, encoder_embedding = self.forward_embedding(src_tokens, token_embeddings)
+        
+        # account for padding while computing the representation
+        x = x * (
+            1 - encoder_padding_mask.unsqueeze(-1).type_as(x) * has_pads.type_as(x)
+        )
+
+        # B x T x C -> T x B x C
+        x = x.transpose(0, 1)
+
+        encoder_states = []
+        fc_results = []
+
+        if return_all_hiddens:
+            encoder_states.append(x)
+
+        # encoder layers
+        for layer in layers:
+            lr = layer(
+                x, encoder_padding_mask=encoder_padding_mask if has_pads else None
+            )
+
+            if isinstance(lr, tuple) and len(lr) == 2:
+                x, fc_result = lr
+            else:
+                x = lr
+                fc_result = None
+
+            if return_all_hiddens and not torch.jit.is_scripting():
+                assert encoder_states is not None
+                encoder_states.append(x)
+                fc_results.append(fc_result)
+
+        if self.layer_norm is not None:
+            x = self.layer_norm(x)
+
+        # The Pytorch Mobile lite interpreter does not supports returning NamedTuple in
+        # `forward` so we use a dictionary instead.
+        # TorchScript does not support mixed values so the values are all lists.
+        # The empty list is equivalent to None.
+        src_lengths = (
+            src_tokens.ne(self.padding_idx)
+            .sum(dim=1, dtype=torch.int32)
+            .reshape(-1, 1)
+            .contiguous()
+        )
+        return {
+            "encoder_out": [x],  # T x B x C
+            "encoder_padding_mask": [encoder_padding_mask],  # B x T
+            "encoder_embedding": [encoder_embedding],  # B x T x C
+            "encoder_states": encoder_states,  # List[T x B x C]
+            "fc_results": fc_results,  # List[T x B x C]
+            "src_tokens": [],
+            "src_lengths": [src_lengths],
+        }
 
     def forward_scriptable(
         self,
