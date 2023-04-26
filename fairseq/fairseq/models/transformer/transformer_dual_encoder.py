@@ -298,7 +298,10 @@ class GraphToTextEncoder(TransformerEncoderBase):
             prev_idx = 0
             for idx in range(len(nodes_info[i]) - 1):
                 num_node_tokens = int(nodes_info[i][idx])
-                token_embeddings_nodes.append(token_embeddings_nodes_tmp[prev_idx: prev_idx + num_node_tokens].mean(0))
+                # TODO encoding node
+                # token_embeddings_nodes.append(token_embeddings_nodes_tmp[prev_idx: prev_idx + num_node_tokens].mean(0))
+                # token_embeddings_nodes.append(token_embeddings_nodes_tmp[prev_idx: prev_idx + num_node_tokens][0])
+                token_embeddings_nodes.append(token_embeddings_nodes_tmp[prev_idx: prev_idx + num_node_tokens].sum(0))
                 prev_idx += num_node_tokens
             token_embeddings_nodes = torch.stack(token_embeddings_nodes)
 
@@ -306,7 +309,10 @@ class GraphToTextEncoder(TransformerEncoderBase):
             prev_idx = 0
             for idx in range(len(edges_info[i]) - 1):
                 num_edge_tokens = int(edges_info[i][idx])
-                token_embeddings_edges.append(token_embeddings_edges_tmp[prev_idx: prev_idx + num_edge_tokens].mean(0))
+                # TODO encoding edges
+                # token_embeddings_edges.append(token_embeddings_edges_tmp[prev_idx: prev_idx + num_edge_tokens].mean(0))
+                # token_embeddings_edges.append(token_embeddings_edges_tmp[prev_idx: prev_idx + num_edge_tokens][1])
+                token_embeddings_edges.append(token_embeddings_edges_tmp[prev_idx: prev_idx + num_edge_tokens].sum(0))
                 prev_idx += num_edge_tokens
             if len(token_embeddings_edges) > 0:
                 token_embeddings_edges = torch.stack(token_embeddings_edges)
