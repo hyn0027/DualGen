@@ -296,16 +296,27 @@ def combine_all_data(dir, output):
             node = item["graph"]["nodeName"]
             out_str = ""
             for i in range(item["graph"]["node"]):
-                out_str += node[i] + '\n'
-            output_file.write(out_str + '\n')
+                index = len(node[i]) - 1
+                while index > 0:
+                    if node[i][index] == '-':
+                        node[i] = node[i][:index]
+                        break
+                    if node[i][index] < '0' or node[i][index] > '9':
+                        break 
+                    index -= 1
+                if i == 0:
+                    out_str += node[i] + '\n'
+                else:
+                    out_str += 'a ' + node[i] + '\n'
+            output_file.write(out_str.lower().replace('"', '') + '\n')
 
     with open(output + '.graph.edge', mode='w') as output_file:
         for item in amr_list:
             edge = item["graph"]["edge"]
             out_str = ""
             for i in edge:
-                out_str += i[1] + '\n'
-            output_file.write(out_str + '\n')
+                out_str += 'b ' + i[1] + '\n'
+            output_file.write(out_str.lower() + '\n')
     return amr_list
 
 def get_edge(amr_list, output_dir):

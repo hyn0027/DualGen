@@ -258,11 +258,12 @@ class GraphToTextEncoder(TransformerEncoderBase):
             print("not implemented at /home/hongyining/s_link/dualEnc_virtual/fairseq/fairseq/models/transformer/transformer_dual_encoder.py, forward")
             exit(-2)
         s2s_output = self.forward_scriptable(
-            self.layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
+            self.graph_layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
         )
 
+        # print(src_tokens.size())
         g2s_output = self.graph_foward_scriptable(self.graph_layers, graph_structures, nodes, nodes_info, edges, edges_info, return_all_hiddens)
-    
+        
         return g2s_output # TODO
 
     def dfs(self, p, graph_structure):
@@ -274,8 +275,10 @@ class GraphToTextEncoder(TransformerEncoderBase):
             s = graph_structure[2 * i]
             e = graph_structure[2 * i + 1]
             if s == p:
-                res.append({"type": "edge", "id": i})
-                res = res + self.dfs(e, graph_structure)
+                child = self.dfs(e, graph_structure)
+                if len(child) > 1:
+                    child = [{"type": "l"}] + child + [{"type": "r"}]
+                res = res + [{"type": "edge", "id": i}] + child
         return res
 
     def graph_foward_scriptable(
@@ -289,6 +292,7 @@ class GraphToTextEncoder(TransformerEncoderBase):
         batch_size = len(graph_structures)
         token_embeddings = []
         max_length = 0
+        max_length_idx = 0
         for i in range(batch_size):
             token_embeddings_nodes_tmp = self.embed_tokens(nodes[i][None, :])
             token_embeddings_edges_tmp = self.embed_tokens(edges[i][None, :])
@@ -301,34 +305,49 @@ class GraphToTextEncoder(TransformerEncoderBase):
                 # TODO encoding node
                 # token_embeddings_nodes.append(token_embeddings_nodes_tmp[prev_idx: prev_idx + num_node_tokens].mean(0))
                 # token_embeddings_nodes.append(token_embeddings_nodes_tmp[prev_idx: prev_idx + num_node_tokens][0])
-                token_embeddings_nodes.append(token_embeddings_nodes_tmp[prev_idx: prev_idx + num_node_tokens].sum(0))
+                # token_embeddings_nodes.append(token_embeddings_nodes_tmp[prev_idx: prev_idx + num_node_tokens].sum(0))
+                token_embeddings_nodes.append([])
+                for j in range(prev_idx, prev_idx + num_node_tokens):
+                    token_embeddings_nodes[-1].append(token_embeddings_nodes_tmp[j])
                 prev_idx += num_node_tokens
-            token_embeddings_nodes = torch.stack(token_embeddings_nodes)
+            # token_embeddings_nodes = torch.stack(token_embeddings_nodes)
 
             token_embeddings_edges = []
             prev_idx = 0
             for idx in range(len(edges_info[i]) - 1):
                 num_edge_tokens = int(edges_info[i][idx])
-                # TODO encoding edges
-                # token_embeddings_edges.append(token_embeddings_edges_tmp[prev_idx: prev_idx + num_edge_tokens].mean(0))
-                # token_embeddings_edges.append(token_embeddings_edges_tmp[prev_idx: prev_idx + num_edge_tokens][1])
-                token_embeddings_edges.append(token_embeddings_edges_tmp[prev_idx: prev_idx + num_edge_tokens].sum(0))
+            #     # TODO encoding edges
+            #     # token_embeddings_edges.append(token_embeddings_edges_tmp[prev_idx: prev_idx + num_edge_tokens].mean(0))
+            #     # token_embeddings_edges.append(token_embeddings_edges_tmp[prev_idx: prev_idx + num_edge_tokens][1])
+            #     token_embeddings_edges.append(token_embeddings_edges_tmp[prev_idx: prev_idx + num_edge_tokens].sum(0))
+                token_embeddings_edges.append([])
+                for j in range(prev_idx, prev_idx + num_edge_tokens):
+                    token_embeddings_edges[-1].append(token_embeddings_edges_tmp[j])
                 prev_idx += num_edge_tokens
-            if len(token_embeddings_edges) > 0:
-                token_embeddings_edges = torch.stack(token_embeddings_edges)
-            else:
-                token_embeddings_edges = torch.ones((0, 1024), device=token_embeddings_nodes.get_device(), dtype=token_embeddings_nodes.dtype)
+            # if len(token_embeddings_edges) > 0:
+            #     token_embeddings_edges = torch.stack(token_embeddings_edges)
+            # else:
+            #     token_embeddings_edges = torch.ones((0, 1024), device=token_embeddings_nodes.get_device(), dtype=token_embeddings_nodes.dtype)
 
             self.visited = [False for _i in range(int(graph_structures[i][0]))]
             dfs_path = self.dfs(graph_structures[i][1], graph_structures[i][2: -1])
             token_embeddings_single = []
             for item in dfs_path:
                 if item["type"] == "node":
-                    token_embeddings_single.append(token_embeddings_nodes[int(item["id"])])
+                    # token_embeddings_single.append(token_embeddings_nodes[int(item["id"])])
+                    token_embeddings_single += token_embeddings_nodes[int(item["id"])] 
                 elif item["type"] == "edge":
-                    token_embeddings_single.append(token_embeddings_edges[int(item["id"])])
+                #     token_embeddings_single.append(token_embeddings_edges[int(item["id"])])
+                    token_embeddings_single += token_embeddings_edges[int(item["id"])]
+                elif item["type"] == "l":
+                    token_embeddings_single.append(self.embed_tokens(torch.tensor([[36]], device=nodes[i].get_device()))[0][0])
+                elif item["type"] == "r":
+                    token_embeddings_single.append(self.embed_tokens(torch.tensor([[4839]], device=nodes[i].get_device()))[0][0])
+            token_embeddings_single.append(self.embed_tokens(torch.tensor([[2]], device=nodes[i].get_device()))[0][0])
             token_embeddings_single = torch.stack(token_embeddings_single)
             token_embeddings.append(token_embeddings_single)
+            if token_embeddings_single.size(0) > max_length:
+                max_length_idx = i
             max_length = max(max_length, token_embeddings_single.size(0))
         encoder_padding_mask = []
         src_tokens = []
@@ -370,7 +389,6 @@ class GraphToTextEncoder(TransformerEncoderBase):
             has_pads = torch.tensor(1) if has_pads else torch.tensor(0)
 
         x, encoder_embedding = self.forward_embedding(src_tokens, token_embeddings)
-        
         # account for padding while computing the representation
         x = x * (
             1 - encoder_padding_mask.unsqueeze(-1).type_as(x) * has_pads.type_as(x)
@@ -466,7 +484,7 @@ class GraphToTextEncoder(TransformerEncoderBase):
             has_pads = torch.tensor(1) if has_pads else torch.tensor(0)
 
         x, encoder_embedding = self.forward_embedding(src_tokens, token_embeddings)
-
+        
         # account for padding while computing the representation
         x = x * (
             1 - encoder_padding_mask.unsqueeze(-1).type_as(x) * has_pads.type_as(x)
