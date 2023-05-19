@@ -605,14 +605,14 @@ class Trainer(object):
                         else:
                             new_state[key] = copy.deepcopy(state["model"][key]) # TODO: clone? deepcopy?
                     self.model.load_state_dict(
-                        new_state, strict=True, model_cfg=self.cfg.model
+                        new_state, strict=False, model_cfg=self.cfg.model
                     )
                     # save memory for later steps
                     del new_state
                     del state["model"]
                     if utils.has_parameters(self.get_criterion()):
                         self.get_criterion().load_state_dict(
-                            state["criterion"], strict=True
+                            state["criterion"], strict=False
                         )
                         del state["criterion"]
 

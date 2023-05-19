@@ -1,7 +1,7 @@
 #!/bin/sh
-TOTAL_NUM_UPDATES=8000  
-WARMUP_UPDATES=200      
-LR=1e-05
+TOTAL_NUM_UPDATES=5000  
+WARMUP_UPDATES=100      
+LR=3e-05
 MAX_TOKENS=2048
 UPDATE_FREQ=4
 LOG_INTERVAL=20
@@ -11,7 +11,7 @@ DATA_BIN=/home/hongyining/s_link/dualEnc_virtual/AMR2.0bin
 CUDA_VISIBLE_DEVICES=0,1,2,3 fairseq-train $DATA_BIN \
     --restore-file $BART_PATH \
     --max-tokens $MAX_TOKENS \
-    --save-dir training/test \
+    --save-dir training/bartLarge+s2s1 \
     --task graph_to_seq \
     --layernorm-embedding \
     --share-all-embeddings \
