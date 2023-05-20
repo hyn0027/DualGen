@@ -413,15 +413,14 @@ class GraphToSeqDataset(FairseqDataset):
         """Return the number of tokens in a sample. This value is used to
         enforce ``--max-tokens`` during batching."""
         return max(
-            self.src_sizes[index] + max(self.src_sizes[index], self.edges_sizes[index] + self.nodes_sizes[index]),
+            self.src_sizes[index] + self.nodes_sizes[index],
             self.tgt_sizes[index] if self.tgt_sizes is not None else 0,
         )
 
     def num_tokens_vec(self, indices):
         """Return the number of tokens for a set of positions defined by indices.
         This value is used to enforce ``--max-tokens`` during batching."""
-        sizes = self.src_sizes[indices] + self.edges_sizes[indices] + self.nodes_sizes[indices]
-        sizes = np.maximum(self.src_sizes[indices] + self.src_sizes[indices], sizes)
+        sizes = self.src_sizes[indices] + self.nodes_sizes[indices]
         if self.tgt_sizes is not None:
             sizes = np.maximum(sizes, self.tgt_sizes[indices])
         return sizes
@@ -430,7 +429,7 @@ class GraphToSeqDataset(FairseqDataset):
         """Return an example's size as a float or tuple. This value is used when
         filtering a dataset with ``--max-positions``."""
         return max(
-            self.src_sizes[index] + max(self.src_sizes[index], self.edges_sizes[index] + self.nodes_sizes[index]),
+            self.src_sizes[index] + self.nodes_sizes[index],
             self.tgt_sizes[index] if self.tgt_sizes is not None else 0,
         )
 

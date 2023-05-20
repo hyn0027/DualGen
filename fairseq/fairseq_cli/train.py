@@ -94,6 +94,39 @@ def main(cfg: FairseqConfig) -> None:
             model = fsdp_wrap(task.build_model(cfg.model))
     else:
         model = task.build_model(cfg.model)
+    if cfg.model.freeze == 1:
+        for param in model.decoder.parameters():
+            param.requires_grad = False
+        for param in model.encoder.layers.parameters():
+            param.requires_grad = False
+        for param in model.encoder.embed_tokens.parameters():
+            param.requires_grad = False
+        for param in model.encoder.embed_positions.parameters():
+            param.requires_grad = False
+        for param in model.encoder.layernorm_embedding.parameters():
+            param.requires_grad = False
+        for i in range(12):
+            for param in model.encoder.graph_layers[i].self_attn.parameters():
+                param.requires_grad = False
+            for param in model.encoder.graph_layers[i].self_attn_layer_norm.parameters():
+                param.requires_grad = False
+            for param in model.encoder.graph_layers[i].fc1.parameters():
+                param.requires_grad = False
+            for param in model.encoder.graph_layers[i].fc2.parameters():
+                param.requires_grad = False
+            for param in model.encoder.graph_layers[i].final_layer_norm.parameters():
+                param.requires_grad = False
+    if cfg.model.freeze == 2:
+        for param in model.decoder.parameters():
+            param.requires_grad = False
+        for param in model.encoder.layers.parameters():
+            param.requires_grad = False
+        for param in model.encoder.embed_tokens.parameters():
+            param.requires_grad = False
+        for param in model.encoder.embed_positions.parameters():
+            param.requires_grad = False
+        for param in model.encoder.layernorm_embedding.parameters():
+            param.requires_grad = False
     criterion = task.build_criterion(cfg.criterion)
     logger.info(model)
     logger.info("task: {}".format(task.__class__.__name__))

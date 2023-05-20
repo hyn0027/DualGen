@@ -100,6 +100,10 @@ class TransformerDualEncModel(TransformerModelBase):
         gen_parser_from_dataclass(
             parser, TransformerConfig(), delete_default=True, with_prefix=""
         )
+        parser.add_argument(
+            '--freeze', type=int, default=0,
+            help="freeze everything except graph encoder"
+        )
 
     @classmethod
     def build_model(cls, args, task):
@@ -222,7 +226,8 @@ class GraphToTextEncoder(TransformerEncoderBase):
             [self.build_graph_encoder_layer(cfg) for i in range(cfg.encoder.layers)]
         )
         self.graph_embeddings = nn.Linear(1024, 64)
-        self.graph_W = nn.Linear(1024, 1024)
+        self.graph_embeddings_inverse = nn.Linear(1024, 64)
+        self.gamma_norm = torch.nn.LayerNorm(64)
     
     def build_graph_encoder_layer(self, cfg):
         layer = transformer_layer.TransformerGraphEncoderLayerBase(
@@ -276,18 +281,18 @@ class GraphToTextEncoder(TransformerEncoderBase):
         if token_embeddings != None:
             print("not implemented at /home/hongyining/s_link/dualEnc_virtual/fairseq/fairseq/models/transformer/transformer_dual_encoder.py, forward")
             exit(-2)
-        s2s_output = self.forward_scriptable(
-            self.graph_layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
-        )
-        s2s_output = self.forward_scriptable(
-            self.layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
-        )
+        # s2s_output = self.forward_scriptable(
+        #     self.graph_layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
+        # )
+        # s2s_output = self.forward_scriptable(
+        #     self.layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
+        # )
 
         # print(src_tokens.size())
         g2s_output = self.graph_foward_scriptable(self.graph_layers, graph_structures, nodes, nodes_info, edges, edges_info, return_all_hiddens)
-        
+        return g2s_output
         # return s2s_output
-        return self.combine_results(s2s_output, g2s_output) # TODO
+        # return self.combine_results(s2s_output, g2s_output) # TODO
 
     def dfs(self, p, graph_structure):
         res = [{"type": "node", "id": p}]
@@ -320,7 +325,8 @@ class GraphToTextEncoder(TransformerEncoderBase):
     
     def embedding_gamma(self, gamma):
         gamma = self.embed_scale * gamma
-
+        gamma = self.gamma_norm(gamma)
+        gamma = self.dropout_module(gamma)
         return gamma
 
     def graph_foward_scriptable(
@@ -349,15 +355,20 @@ class GraphToTextEncoder(TransformerEncoderBase):
             token_embeddings_nodes = torch.stack(token_embeddings_nodes)
 
             token_embeddings_edges = []
+            token_embeddings_edges_inverse = []
             prev_idx = 0
             for idx in range(len(edges_info[i]) - 1):
                 num_edge_tokens = int(edges_info[i][idx])
-                token_embeddings_edges.append(self.graph_embeddings(token_embeddings_edges_tmp[prev_idx: prev_idx + num_edge_tokens].mean(0)))
+                token_embeddings_edges.append(self.graph_embeddings(token_embeddings_edges_tmp[prev_idx + 1: prev_idx + num_edge_tokens].mean(0)))
+                token_embeddings_edges_inverse.append(self.graph_embeddings_inverse(token_embeddings_edges_tmp[prev_idx + 1: prev_idx + num_edge_tokens].mean(0)))
+                # token_embeddings_edges.append(token_embeddings_edges_tmp[prev_idx: prev_idx + num_edge_tokens].mean(0))
                 prev_idx += num_edge_tokens
             if len(token_embeddings_edges) > 0:
                 token_embeddings_edges = torch.stack(token_embeddings_edges)
+                token_embeddings_edges_inverse = torch.stack(token_embeddings_edges_inverse)
             else:
                 token_embeddings_edges = torch.ones((0, 64), device=token_embeddings_nodes.get_device(), dtype=token_embeddings_nodes.dtype)
+                token_embeddings_edges_inverse = torch.ones((0, 64), device=token_embeddings_nodes.get_device(), dtype=token_embeddings_nodes.dtype)
 
             gamma_single = torch.zeros(
                 [len(nodes_info[i]) - 1, len(nodes_info[i]) - 1, 64],
@@ -368,6 +379,7 @@ class GraphToTextEncoder(TransformerEncoderBase):
                 edge_i = graph_structures[i][2 + idx * 2]
                 edge_j = graph_structures[i][2 + idx * 2 + 1]
                 gamma_single[edge_i][edge_j] = token_embeddings_edges[idx]
+                gamma_single[edge_j][edge_i] = token_embeddings_edges_inverse[idx]
             # self.visited = [False for _i in range(int(graph_structures[i][0]))]
             # dfs_path = self.dfs(graph_structures[i][1], graph_structures[i][2: -1])
             # token_embeddings_single = []
