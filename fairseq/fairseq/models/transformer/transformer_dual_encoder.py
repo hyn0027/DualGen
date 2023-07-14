@@ -28,6 +28,7 @@ from fairseq.distributed import fsdp_wrap
 from fairseq.modules import (
     LayerDropModuleList,
     transformer_layer,
+    GradMultiply,
 )
 import torch
 import torch.nn.functional as F
@@ -284,15 +285,14 @@ class GraphToTextEncoder(TransformerEncoderBase):
         # s2s_output = self.forward_scriptable(
         #     self.graph_layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
         # )
-        # s2s_output = self.forward_scriptable(
-        #     self.layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
-        # )
-
+        s2s_output = self.forward_scriptable(
+            self.layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
+        )
         # print(src_tokens.size())
         g2s_output = self.graph_foward_scriptable(self.graph_layers, graph_structures, nodes, nodes_info, edges, edges_info, return_all_hiddens)
-        return g2s_output
+        # return g2s_output
         # return s2s_output
-        # return self.combine_results(s2s_output, g2s_output) # TODO
+        return self.combine_results(s2s_output, g2s_output) # TODO
 
     def dfs(self, p, graph_structure):
         res = [{"type": "node", "id": p}]
@@ -463,13 +463,14 @@ class GraphToTextEncoder(TransformerEncoderBase):
 
             if isinstance(lr, tuple) and len(lr) == 2:
                 x, fc_result = lr
+                fc_result = GradMultiply.apply(fc_result, 5)
             else:
                 x = lr
                 fc_result = None
 
             if return_all_hiddens and not torch.jit.is_scripting():
                 assert encoder_states is not None
-                encoder_states.append(x)
+                encoder_states.append(GradMultiply.apply(x, 5))
                 fc_results.append(fc_result)
 
         if self.layer_norm is not None:
@@ -485,6 +486,7 @@ class GraphToTextEncoder(TransformerEncoderBase):
             .reshape(-1, 1)
             .contiguous()
         )
+        x = GradMultiply.apply(x, 5)
         return {
             "encoder_out": [x],  # T x B x C
             "encoder_padding_mask": [encoder_padding_mask],  # B x T
@@ -559,18 +561,20 @@ class GraphToTextEncoder(TransformerEncoderBase):
 
             if isinstance(lr, tuple) and len(lr) == 2:
                 x, fc_result = lr
+                fc_result = GradMultiply.apply(fc_result, 1/8)
             else:
                 x = lr
                 fc_result = None
 
             if return_all_hiddens and not torch.jit.is_scripting():
                 assert encoder_states is not None
-                encoder_states.append(x)
+                encoder_states.append(GradMultiply.apply(x, 1/8))
+                # encoder_states.append(x)
                 fc_results.append(fc_result)
 
         if self.layer_norm is not None:
             x = self.layer_norm(x)
-
+        x = GradMultiply.apply(x, 1/8)
         # The Pytorch Mobile lite interpreter does not supports returning NamedTuple in
         # `forward` so we use a dictionary instead.
         # TorchScript does not support mixed values so the values are all lists.
@@ -605,7 +609,6 @@ class GraphToTextEncoder(TransformerEncoderBase):
         g2s_encoder_states = g2soutput["encoder_states"]
         g2s_fc_results = g2soutput["fc_results"]
         g2s_src_lengths = g2soutput["src_lengths"][0]
-
         
         encoder_out = torch.cat((g2s_encoder_out, s2s_encoder_out), dim=0)
         encoder_padding_mask = torch.cat((g2s_encoder_padding_mask, s2s_encoder_padding_mask), dim=1)
