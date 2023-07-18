@@ -133,6 +133,12 @@ def break_amr_instance1(example):
     example = example.replace('(', ' ( ').replace(')', ' ) ')
     while example.find('  ') != -1:
         example = example.replace('  ', ' ')
+    if example.find('": ) "') != -1:
+        example = example.replace('": ) "', '":)"')
+    if example.find('" ) :"') != -1:
+        example = example.replace('" ) :"', '"):"')
+    if example.find('"; ) "') != -1:
+        example = example.replace('"; ) "', '";)"')
     for item in nodes:
         example = example.replace(item + ' / ' + nodes[item], ' NODE' + str(node_id[item]) + ' ')
     for item in nodes:
@@ -146,7 +152,7 @@ def break_amr_instance1(example):
     while i < len(example_list):
         item = example_list[i]
         
-        flag1 = item != '(' and item != ')' and item.find("NODE") == -1 and item.find(":") == -1
+        flag1 = item != '(' and item != ')' and item.find("NODE") == -1 and item.find(":") != 0
         flag2 = item.find(":") != -1 and previous.find(":") != -1 and pprevious.find(":") == -1
         if flag1 or flag2:
             j = i
@@ -155,7 +161,8 @@ def break_amr_instance1(example):
             while j < len(example_list) and item1 != '(' and item1 != ')' and item1[0] != ':':
                 item += example_list[j]
                 j += 1
-                item1 = example_list[j]
+                if j < len(example_list):
+                    item1 = example_list[j]
             if j == i + 1 and item.find('~e') != -1 and item[:item.find('~e')] in nodes:
                 # print("!")
                 example_list[i] = 'NODE' + str(node_id[item[:item.find('~e')]])
@@ -174,15 +181,16 @@ def break_amr_instance1(example):
         flag2 = item.find(":") != -1 and previous.find(":") != -1 and pprevious.find(":") == -1
         if flag1 or flag2:
             print("存在非点非边的情况")
+            print(example_id)
             print(example_list)
             exit(-1)
         pprevious = previous
         previous = item
-    try:
-        root, edge = check_edges(example_list, 1, len(example_list) - 1)
-    except:
-        print(example_id)
-        exit(-1)
+    # try:
+    root, edge = check_edges(example_list, 1, len(example_list) - 1)
+    # except:
+    #     print(example_id)
+    #     exit(-1)
     for item in id_nodes:
         u = id_nodes[item]
         if u.find('~e') != -1:
@@ -200,7 +208,9 @@ def break_amr_instance1(example):
 def get_id(node_name):
     return int(node_name[4:])
 
-def check_edges(example_list, left, right):
+def check_edges(example_list, left, right, p=False):
+    if p:
+        print("111", example_list)
     if (example_list[left] != '('):
         root = get_id(example_list[left])
         i = left + 1
@@ -212,13 +222,18 @@ def check_edges(example_list, left, right):
         print(example_list)
         exit(-1)
     edge_list = []
+    if p:
+        print("222", example_list)
     while i < right:
+        if p:
+            print("333", i, example_list)
         if example_list[i][0] != ':':
             print("递归解析错误1")
             print(example_list)
             print(' '.join(example_list))
             print(left, right)
             print(' '.join(example_list[left:right]))
+            print(' '.join(example_list[i:right]))
             exit(-1)
         start = i + 1
         if (example_list[start] != '('):
@@ -246,6 +261,8 @@ def check_edges(example_list, left, right):
             son, son_edge_list = check_edges(example_list, start + 1, i - 1)
             edge_list += son_edge_list
             edge_list.append([root, example_list[mark], son])
+        if p:
+            print("444", i, example_list)
     return root, edge_list
 
 def combine_all_files_in_dir(dir):
@@ -342,9 +359,9 @@ def get_edge(amr_list, output_dir):
         output_file.write(output3)
 
 if __name__ == '__main__':
-    dir_path = ['/home/hongyining/s_link/abstract_meaning_representation_amr_2.0/data/amrs/split', 
-                '/home/hongyining/s_link/abstract_meaning_representation_amr_2.0/data/alignments/split']
-    output_dir_path = '/home/hongyining/s_link/dualEnc_virtual/AMR2.0/'
+    dir_path = ['/home/hongyining/s_link/amr_annotation_3.0/data/amrs/split', 
+                '/home/hongyining/s_link/amr_annotation_3.0/data/alignments/split']
+    output_dir_path = '/home/hongyining/s_link/dualEnc_virtual/AMR3.0/'
     train_path = [os.path.join(dir_path[1], 'training')]
     dev_path = [os.path.join(dir_path[1], 'dev')]
     test_path = [os.path.join(dir_path[1], 'test')]

@@ -1,11 +1,11 @@
-INPUTFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR2.0
-OUTPUTFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR2.0BPE
-PREFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR2.0BPE_PRE
-BINFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR2.0bin
+INPUTFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR3.0
+OUTPUTFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR3.0BPE
+PREFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR3.0BPE_PRE
+BINFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR3.0bin
 
-cd ../
-python preprocess.py
-cd fairseq
+# cd ../
+# python preprocess.py
+# cd fairseq
 
 for SPLIT in train test dev
 do

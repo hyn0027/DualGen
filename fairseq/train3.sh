@@ -1,18 +1,19 @@
 #!/bin/sh
 TOTAL_NUM_UPDATES=8000  
 WARMUP_UPDATES=200      
-LR=8e-6
+# LR=8e-6
+LR=3e-5
 MAX_TOKENS=2048
 MAX_EPOCH=65
 UPDATE_FREQ=4
 LOG_INTERVAL=20
 BART_PATH=/home/hongyining/s_link/dualEnc_virtual/bart.large/model.pt
-DATA_BIN=/home/hongyining/s_link/dualEnc_virtual/AMR2.0bin
+DATA_BIN=/home/hongyining/s_link/dualEnc_virtual/AMR3.0bin
 
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 fairseq-train $DATA_BIN \
     --restore-file $BART_PATH \
     --max-tokens $MAX_TOKENS \
-    --save-dir training/diffLR38 \
+    --save-dir training/AMR3.0+bart \
     --task graph_to_seq \
     --max-epoch $MAX_EPOCH \
     --fp16 \
