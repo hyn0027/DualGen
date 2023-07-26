@@ -14,4 +14,7 @@ CUDA_VISIBLE_DEVICES=0,1 fairseq-generate $DATA_BIN \
     --results-path /home/hongyining/s_link/dualEnc_virtual/fairseq/infer/AMR3.0+bart \
     --find-unused-parameters;
 
-python infer.py
+python infer.py \
+    --generate-result /home/hongyining/s_link/dualEnc_virtual/fairseq/infer/AMR3.0+bart/generate-test.txt \
+    --target /home/hongyining/s_link/dualEnc_virtual/AMR3.0/test.sequence.target \
+    --output-dir /home/hongyining/s_link/dualEnc_virtual/fairseq/infer/AMR3.0+bart
