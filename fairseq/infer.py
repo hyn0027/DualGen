@@ -9,9 +9,9 @@ def parseArg():
 
 def addArg(parser):
     parser.add_argument("--encoder-json", default="encoder.json")
-    parser.add_argument("--generate-result", default="/home/hongyining/s_link/dualEnc_virtual/fairseq/infer/generate-test.txt")
-    parser.add_argument("--target", default="/home/hongyining/s_link/dualEnc_virtual/AMR2.0/test.sequence.target")
-    parser.add_argument("--output-dir", default="/home/hongyining/s_link/dualEnc_virtual/fairseq/infer")
+    parser.add_argument("--generate-result", default="/home/hongyining/s_link/dualEnc_virtual/fairseq/infer/AMR3.0+bart/generate-test.txt")
+    parser.add_argument("--target", default="/home/hongyining/s_link/dualEnc_virtual/AMR3.0/test.sequence.target")
+    parser.add_argument("--output-dir", default="/home/hongyining/s_link/dualEnc_virtual/fairseq/infer/AMR3.0+bart")
 
 def load_encoder(args):
     with open(args.encoder_json) as f:

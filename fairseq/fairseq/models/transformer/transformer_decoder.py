@@ -23,6 +23,7 @@ from fairseq.modules import (
     PositionalEmbedding,
     SinusoidalPositionalEmbedding,
     transformer_layer,
+    GradMultiply,
 )
 from fairseq.modules.checkpoint_activations import checkpoint_wrapper
 from fairseq.modules.quant_noise import quant_noise as apply_quant_noise_
@@ -366,7 +367,7 @@ class TransformerDecoderBase(FairseqIncrementalDecoder):
 
         if self.project_out_dim is not None:
             x = self.project_out_dim(x)
-
+        # x = GradMultiply.apply(x, 1 / 10000)
         return x, {"attn": [attn], "inner_states": inner_states}
 
     def output_layer(self, features):

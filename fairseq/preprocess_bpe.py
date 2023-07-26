@@ -3,6 +3,19 @@ import sys
 def read_file(path):
     with open(path) as f:
         data = f.readlines()
+    if data[1][0:3] == "65 ":
+        for i in range(len(data)):
+            if data[i][0:3] == "65 ":
+                data[i] = data[i][3:]
+    else:
+        i = 1
+        while i < len(data):
+            if data[i][0:3] == "64 ":
+                data[i] = data[i][3:]
+            else:
+                i += 1
+            i += 1
+
     return data
 
 def write_file(path, lines):

@@ -31,6 +31,7 @@ from .linearized_convolution import LinearizedConvolution
 from .location_attention import LocationAttention
 from .lstm_cell_with_zoneout import LSTMCellWithZoneOut
 from .multihead_attention import MultiheadAttention
+from .multihead_attention_structure import StructureMultiheadAttention
 from .positional_embedding import PositionalEmbedding
 from .same_pad import SamePad, SamePad2d
 from .scalar_bias import ScalarBias
@@ -85,6 +86,7 @@ __all__ = [
     "LocationAttention",
     "LSTMCellWithZoneOut",
     "MultiheadAttention",
+    "StructureMultiheadAttention",
     "PositionalEmbedding",
     "SamePad",
     "SamePad2d",

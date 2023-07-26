@@ -3,3 +3,6 @@
 /home/hongyining/s_link/dualEnc_virtual/fairseq/fairseq/tasks/graph_to_seq.py HALF 
 /home/hongyining/s_link/dualEnc_virtual/fairseq/fairseq/models/transformer/transformer_dual_encoder.py HALF 
 /home/hongyining/s_link/dualEnc_virtual/fairseq/fairseq/trainer.py OK
+
+
+multihead attention structure 之后看不用的话就删了

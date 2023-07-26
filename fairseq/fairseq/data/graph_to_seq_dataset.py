@@ -66,6 +66,12 @@ def collate(
         align_weights = align_tgt_c[align_tgt_i[np.arange(len(align_tgt))]]
         return 1.0 / align_weights.float()
 
+    def sort_list(preList, sort_order):
+        newList = []
+        for item in sort_order:
+            newList.append(preList[int(item)])
+        return newList
+
     id = torch.LongTensor([s["id"] for s in samples])
     src_tokens = merge(
         "source",
@@ -81,10 +87,15 @@ def collate(
     src_tokens = src_tokens.index_select(0, sort_order)
 
     graph_structures = merge('graph_structures', left_pad=left_pad_source)
-    nodes = merge('nodes', left_pad=left_pad_source)
+    graph_structures = sort_list(graph_structures, sort_order)
+    nodes = merge('nodes', left_pad=left_pad_source, pad_to_length=pad_to_length["source"] if pad_to_length is not None else None)
+    nodes = sort_list(nodes, sort_order)
     edges = merge('edges', left_pad=left_pad_source)
+    edges = sort_list(edges, sort_order)
     nodes_info = merge('nodes_info', left_pad=left_pad_source)
+    nodes_info = sort_list(nodes_info, sort_order)
     edges_info = merge('edges_info', left_pad=left_pad_source)
+    edges_info = sort_list(edges_info, sort_order)
 
 
     prev_output_tokens = None
@@ -402,14 +413,14 @@ class GraphToSeqDataset(FairseqDataset):
         """Return the number of tokens in a sample. This value is used to
         enforce ``--max-tokens`` during batching."""
         return max(
-            self.src_sizes[index] + self.edges_sizes[index] + self.nodes_sizes[index],
+            self.src_sizes[index] + self.nodes_sizes[index],
             self.tgt_sizes[index] if self.tgt_sizes is not None else 0,
         )
 
     def num_tokens_vec(self, indices):
         """Return the number of tokens for a set of positions defined by indices.
         This value is used to enforce ``--max-tokens`` during batching."""
-        sizes = self.src_sizes[indices] + self.edges_sizes[indices] + self.nodes_sizes[indices]
+        sizes = self.src_sizes[indices] + self.nodes_sizes[indices]
         if self.tgt_sizes is not None:
             sizes = np.maximum(sizes, self.tgt_sizes[indices])
         return sizes
@@ -417,8 +428,8 @@ class GraphToSeqDataset(FairseqDataset):
     def size(self, index):
         """Return an example's size as a float or tuple. This value is used when
         filtering a dataset with ``--max-positions``."""
-        return (
-            self.src_sizes[index] + self.edges_sizes[index] + self.nodes_sizes[index],
+        return max(
+            self.src_sizes[index] + self.nodes_sizes[index],
             self.tgt_sizes[index] if self.tgt_sizes is not None else 0,
         )
 
