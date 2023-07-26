@@ -1,7 +1,7 @@
 import os
 import re
-import json
 import copy
+import argparse
 
 def break_amr_instance(example):
     example = example.strip().split('\n')
@@ -112,7 +112,6 @@ def extract_relation(example, nodes):
 
 
 def break_amr_instance1(example):
-    # print(example)
     example = example.strip().split('\n')
     example_id = example[0].split()[2]
     example = ' '.join(example[3:])
@@ -164,7 +163,6 @@ def break_amr_instance1(example):
                 if j < len(example_list):
                     item1 = example_list[j]
             if j == i + 1 and item.find('~e') != -1 and item[:item.find('~e')] in nodes:
-                # print("!")
                 example_list[i] = 'NODE' + str(node_id[item[:item.find('~e')]])
             else:
                 nodes[item] = item
@@ -180,25 +178,23 @@ def break_amr_instance1(example):
         flag1 = item != '(' and item != ')' and item.find("NODE") == -1 and item[0] != ':'
         flag2 = item.find(":") != -1 and previous.find(":") != -1 and pprevious.find(":") == -1
         if flag1 or flag2:
-            print("存在非点非边的情况")
-            print(example_id)
-            print(example_list)
+            print("input", ' '.join(example_list))
+            print("problem exist: neither a node nor an edge")
+            print("id", example_id)
             exit(-1)
         pprevious = previous
         previous = item
-    # try:
-    root, edge = check_edges(example_list, 1, len(example_list) - 1)
-    # except:
-    #     print(example_id)
-    #     exit(-1)
+    try:
+        root, edge = check_edges(example_list, 1, len(example_list) - 1)
+    except:
+        print("id", example_id)
+        exit(-1)
     for item in id_nodes:
         u = id_nodes[item]
         if u.find('~e') != -1:
             u = u[:u.find('~e')]
         if u.find('-0') != -1:
             u = u[:u.find('-0')]
-        if u.find('-0') != -1:
-            print("????", u)
         id_nodes[item] = u
     for item in edge:
         if item[1].find("~e") != -1:
@@ -208,9 +204,7 @@ def break_amr_instance1(example):
 def get_id(node_name):
     return int(node_name[4:])
 
-def check_edges(example_list, left, right, p=False):
-    if p:
-        print("111", example_list)
+def check_edges(example_list, left, right):
     if (example_list[left] != '('):
         root = get_id(example_list[left])
         i = left + 1
@@ -218,22 +212,17 @@ def check_edges(example_list, left, right, p=False):
         root = get_id(example_list[left + 1])
         i = left + 3
     else:
-        print("无法识别树根")
-        print(example_list)
+        print("input", ' '.join(example_list))
+        print("problem exist: can not identify root")
         exit(-1)
     edge_list = []
-    if p:
-        print("222", example_list)
     while i < right:
-        if p:
-            print("333", i, example_list)
         if example_list[i][0] != ':':
-            print("递归解析错误1")
-            print(example_list)
-            print(' '.join(example_list))
-            print(left, right)
-            print(' '.join(example_list[left:right]))
-            print(' '.join(example_list[i:right]))
+            print("input", ' '.join(example_list))
+            print("problem interval:", left, right)
+            print("details:", ' '.join(example_list[left:right]))
+            print("details:", ' '.join(example_list[i:right]))
+            print("problem exist: cannot find edge at position {i}".format(i=i))
             exit(-1)
         start = i + 1
         if (example_list[start] != '('):
@@ -254,15 +243,13 @@ def check_edges(example_list, left, right, p=False):
                     break
                 i += 1
             if cnt != 0:
-                print("递归解析错误2")
-                print(example_list)
+                print("input", ' '.join(example_list))
+                print("problem exist: brackets are not consistent")
                 exit(-1)
             i += 1
             son, son_edge_list = check_edges(example_list, start + 1, i - 1)
             edge_list += son_edge_list
             edge_list.append([root, example_list[mark], son])
-        if p:
-            print("444", i, example_list)
     return root, edge_list
 
 def combine_all_files_in_dir(dir):
@@ -291,7 +278,6 @@ def combine_all_data(dir, output):
     amr_list = []
     for item in dir:
         amr_list += combine_all_files_in_dir(item)
-    # print(amr_list[0])
     with open(output + '.sequence.source', mode='w') as output_file:
         for item in amr_list:
             output_file.write(item['amr'] + '\n')
@@ -358,17 +344,26 @@ def get_edge(amr_list, output_dir):
         output_file.write('\n\n\n')
         output_file.write(output3)
 
+def addArg(parser):
+    parser.add_argument("--dir-path", required=True, help="data path")
+    parser.add_argument("--output-dir-path", required=True, help="output data path")
+    parser.add_argument("--only-train", required=True, type=bool)
+
 if __name__ == '__main__':
-    dir_path = ['/home/hongyining/s_link/amr_annotation_3.0/data/amrs/split', 
-                '/home/hongyining/s_link/amr_annotation_3.0/data/alignments/split']
-    output_dir_path = '/home/hongyining/s_link/dualEnc_virtual/AMR3.0/'
-    train_path = [os.path.join(dir_path[1], 'training')]
-    dev_path = [os.path.join(dir_path[1], 'dev')]
-    test_path = [os.path.join(dir_path[1], 'test')]
-    train_output_path = os.path.join(output_dir_path, 'train')
-    dev_output_path = os.path.join(output_dir_path, 'dev')
-    test_output_path = os.path.join(output_dir_path, 'test')
+    parser = argparse.ArgumentParser()
+    addArg(parser=parser)
+    args=parser.parse_args()
+    print(args)
+    train_path = [os.path.join(args.dir_path, 'training')]
+    if not args.only_train:
+        dev_path = [os.path.join(args.dir_path, 'dev')]
+        test_path = [os.path.join(args.dir_path, 'test')]
+    train_output_path = os.path.join(args.output_dir_path, 'train')
+    if not args.only_train:
+        dev_output_path = os.path.join(args.output_dir_path, 'dev')
+        test_output_path = os.path.join(args.output_dir_path, 'test')
     list1 = combine_all_data(train_path, train_output_path)
-    list2 = combine_all_data(dev_path, dev_output_path)
-    list3 = combine_all_data(test_path, test_output_path)
-    # get_edge(list1 + list2 + list3, os.path.join(output_dir_path, 'edge_label'))
+    if not args.only_train:
+        list2 = combine_all_data(dev_path, dev_output_path)
+        list3 = combine_all_data(test_path, test_output_path)
+    # get_edge(list1 + list2 + list3, os.path.join(args.output_dir_path, 'edge_label'))

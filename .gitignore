@@ -6,3 +6,7 @@ AMR*/
 bart.*/
 dual*/
 fairseq/checkpoints*/
+SData*
+ggw_data/
+
+*slurm*
