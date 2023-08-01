@@ -1,0 +1,4 @@
+PyYAML==6.0
+retrying==1.3.4
+fnmatch2==0.0.8
+openai==0.27.8

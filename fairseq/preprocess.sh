@@ -1,3 +1,4 @@
+#!/bin/sh
 INPUTFOLDER=/home/hongyining/s_link/dualEnc_virtual/SData
 OUTPUTFOLDER=/home/hongyining/s_link/dualEnc_virtual/SDataBPE
 PREFOLDER=/home/hongyining/s_link/dualEnc_virtual/SDataBPE_PRE

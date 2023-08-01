@@ -1,0 +1,11 @@
+- few shot 1
+  - Q: ...
+  - A: ...
+- few shot 2
+  - .... // Positive
+  - .... // Negative
+- few shot 3
+  - same format as few shot 1
+  - random label
+- few shot 4
+  - 
