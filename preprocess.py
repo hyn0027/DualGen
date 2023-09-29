@@ -9,7 +9,7 @@ def break_amr_instance(example):
     target = example[1][8:]
     example = ' '.join(example[3:])
     example = re.sub(r'\s+', ' ', example).strip() 
-    example = example.lower()
+    # example = example.lower()
     nodes = re.findall(r'(\w+\d*)\s/\s(.+?)[\s)]', example)  # extract all nodes
     nodes = dict(zip([node[0] for node in nodes], [re.sub(r'(.+?)-\d\d*', lambda x: x.group(1), node[1]) for node in
                                                    nodes]))  # convert list to dict and remove senses
@@ -59,7 +59,7 @@ def break_amr_instance(example):
     linearized_graph = linearized_graph.replace('(', '( ')
     while linearized_graph.find('  ') != -1:
         linearized_graph = linearized_graph.replace('  ', ' ')
-    return {"amr": linearized_graph, "sent": target.lower()}
+    return {"amr": linearized_graph, "sent": target}
 
 # break basket '( )' layer by layer
 def break_basket(example, nodes):
@@ -280,11 +280,14 @@ def combine_all_data(dir, output):
         amr_list += combine_all_files_in_dir(item)
     with open(output + '.sequence.source', mode='w') as output_file:
         for item in amr_list:
-            output_file.write(item['amr'] + '\n')
+            output_file.write(item['amr'].lower() + '\n')
     
     with open(output + '.sequence.target', mode='w') as output_file:
         for item in amr_list:
-            output_file.write(item['sent'] + '\n')
+            output_file.write(item['sent'].lower() + '\n')
+    # with open(output + '.sequence.target.original', mode='w') as output_file:
+    #     for item in amr_list:
+    #         output_file.write(item['sent'] + '\n')
  
     with open(output + '.graph.info', mode='w') as output_file:
         for item in amr_list:
@@ -292,7 +295,7 @@ def combine_all_data(dir, output):
             out_str = str(graph["node"]) + ' ' + str(graph["root"])
             for edge in graph["edge"]:
                 out_str += ' ' + str(edge[0]) + ' ' + str(edge[2])
-            output_file.write(out_str + '\n')
+            output_file.write(out_str.lower() + '\n')
 
     with open(output + '.graph.node', mode='w') as output_file:
         for item in amr_list:
@@ -311,7 +314,25 @@ def combine_all_data(dir, output):
                     out_str += node[i] + '\n'
                 else:
                     out_str += 'a ' + node[i] + '\n'
-            output_file.write(out_str.lower().replace('"', '') + '\n')
+            output_file.write(out_str.replace('"', '').lower() + '\n')
+    # with open(output + '.graph.node.original', mode='w') as output_file:
+    #     for item in amr_list:
+    #         node = item["graph"]["nodeName"]
+    #         out_str = ""
+    #         for i in range(item["graph"]["node"]):
+    #             index = len(node[i]) - 1
+    #             while index > 0:
+    #                 if node[i][index] == '-':
+    #                     node[i] = node[i][:index]
+    #                     break
+    #                 if node[i][index] < '0' or node[i][index] > '9':
+    #                     break 
+    #                 index -= 1
+    #             if i == 0:
+    #                 out_str += node[i] + '\n'
+    #             else:
+    #                 out_str += 'a ' + node[i] + '\n'
+    #         output_file.write(out_str.replace('"', '') + '\n')
 
     with open(output + '.graph.edge', mode='w') as output_file:
         for item in amr_list:
@@ -347,7 +368,7 @@ def get_edge(amr_list, output_dir):
 def addArg(parser):
     parser.add_argument("--dir-path", required=True, help="data path")
     parser.add_argument("--output-dir-path", required=True, help="output data path")
-    parser.add_argument("--only-train", required=True, type=bool)
+    parser.add_argument("--only-train", required=True, type=str)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -355,15 +376,15 @@ if __name__ == '__main__':
     args=parser.parse_args()
     print(args)
     train_path = [os.path.join(args.dir_path, 'training')]
-    if not args.only_train:
+    if args.only_train == 'false':
         dev_path = [os.path.join(args.dir_path, 'dev')]
         test_path = [os.path.join(args.dir_path, 'test')]
     train_output_path = os.path.join(args.output_dir_path, 'train')
-    if not args.only_train:
+    if args.only_train == 'false':
         dev_output_path = os.path.join(args.output_dir_path, 'dev')
         test_output_path = os.path.join(args.output_dir_path, 'test')
     list1 = combine_all_data(train_path, train_output_path)
-    if not args.only_train:
+    if args.only_train == 'false':
         list2 = combine_all_data(dev_path, dev_output_path)
         list3 = combine_all_data(test_path, test_output_path)
     # get_edge(list1 + list2 + list3, os.path.join(args.output_dir_path, 'edge_label'))

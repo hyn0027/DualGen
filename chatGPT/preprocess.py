@@ -47,5 +47,5 @@ if __name__ == '__main__':
     addArg(parser=parser)
     args=parser.parse_args()
     print(args)
-    test_path = [os.path.join(args.dir_path, 'test')]
+    test_path = [os.path.join(args.dir_path, 'dev')]
     combine_all_data(test_path, args.output_path)

@@ -1,0 +1,6 @@
+data/
+meteor-1.5/
+meteor*
+*.png
+*.txt
+tmp/

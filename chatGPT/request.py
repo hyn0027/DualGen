@@ -25,11 +25,61 @@ def send_request(
         messages=[
             {
                 "role": "system",
-                "content": "Recover the text represented by the Abstract Meaning Representation graph (AMR graph) enclosed within triple quotes. Utilize only the information provided in the input. Output only the recovered text."
+                "content": '''Recover the text represented by the Abstract Meaning Representation graph (AMR graph) enclosed within triple quotes. Utilize only the information provided in the input. Output only the recovered text.'''
             },
             {
                 "role": "user",
-                "content": '''"""{prompt}"""'''.format(prompt=prompt)
+                "content": '''"""
+(p / possible-01~e.1 
+      :ARG1 (m / make-05~e.2 
+            :ARG0 (c / company :wiki "Hallmark_Cards" 
+                  :name (n / name :op1 "Hallmark"~e.0)) 
+            :ARG1 (f / fortune~e.4 
+                  :source~e.6 (g / guy~e.8 
+                        :mod (t / this~e.7)))))
+"""'''
+            },
+            {
+                "role": "assistant",
+                "content": '''Hallmark could make a fortune off of this guy.'''
+            },
+            {
+                "role": "user",
+                "content": '''"""
+(t / think-01~e.1 
+      :ARG0 (i / i~e.0) 
+      :ARG1 (c / crazy-03~e.7 
+            :ARG1 (p / person :wiki "Ron_Paul" 
+                  :name (n / name :op1 "Good"~e.3 :op2 "Doctor"~e.4)) 
+            :degree (t2 / too~e.6 
+                  :purpose (h / hang-01~e.9 
+                        :ARG0 p 
+                        :ARG1 (i2 / it~e.10) 
+                        :mod (u / up~e.11)))))
+"""'''
+            },
+            {
+                "role": "assistant",
+                "content": '''I think the Good Doctor is too crazy to hang it up.'''
+            },
+            {
+                "role": "user",
+                "content": '''"""
+(g2 / guest~e.3 
+      :poss~e.4 (f / family~e.8 :wiki "Hashemites" 
+            :name (n / name :op1 "Hashemite"~e.6) 
+            :mod (r / royal~e.7)) 
+      :domain~e.1 (p / person :wiki "Raghad_Hussein" 
+            :name (n2 / name :op1 "Raghad"~e.0)))
+"""'''
+            },
+            {
+                "role": "assistant",
+                "content": '''Raghad is the guest of the Hashemite royal family.'''
+            },
+            {
+                "role": "user",
+                "content": '''"""\n{prompt}\n"""'''.format(prompt=prompt)
             }
         ],
         temperature=temperature,
@@ -58,7 +108,7 @@ def request(args):
             "input": item_input,
             "target": item_target
         })
-    data = random.sample(data, 50)
+    # data = random.sample(data, 5)
     logger.info("finished reading from file {file}".format(file=args.target_path))
     # random select data from data and target with the same index
     logging.disable(logging.CRITICAL)
