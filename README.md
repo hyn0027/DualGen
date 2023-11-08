@@ -1,4 +1,6 @@
-# AMR2Text Dual Encoder
+# DualGen
+
+The code repo for [Two Heads Are Better Than One: Exploiting Both Sequence and Graph Models in AMR-To-Text Generation](https://openreview.net/forum?id=61DYdiyQqk).
 
 ## get silver data
 
