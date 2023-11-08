@@ -1,12 +1,13 @@
-INPUTFOLDER=/home/hongyining/s_link/dualEnc_virtual/SData
-OUTPUTFOLDER=/home/hongyining/s_link/dualEnc_virtual/SDataBPE
-PREFOLDER=/home/hongyining/s_link/dualEnc_virtual/SDataBPE_PRE
-BINFOLDER=/home/hongyining/s_link/dualEnc_virtual/SDatabin
+#!/bin/sh
+INPUTFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR2.0
+OUTPUTFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR2.0BPE
+PREFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR2.0BPE_PRE
+BINFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR2.0bin
 
-DATA_PATH=/home/hongyining/s_link/dualEnc_virtual/silver_data
-# DATA_PATH=/home/hongyining/s_link/amr_annotation_3.0/data/alignments/split
-OUTPUT_PATH=/home/hongyining/s_link/dualEnc_virtual/SData
-ONLY_TRAIN=true # only process data in $DATA_PATH/training
+# DATA_PATH=/home/hongyining/s_link/dualEnc_virtual/silver_data
+DATA_PATH=/home/hongyining/s_link/abstract_meaning_representation_amr_2.0/data/alignments/split
+OUTPUT_PATH=/home/hongyining/s_link/dualEnc_virtual/AMR2.0
+ONLY_TRAIN=false # only process data in $DATA_PATH/training
 
 cd ../
 python preprocess.py \
@@ -62,7 +63,7 @@ if [ "$ONLY_TRAIN" = "true" ]; then
     python preprocess_bpe.py \
         $OUTPUTFOLDER/train.graph.edge \
         $PREFOLDER/train.graph.edge \
-        $PREFOLDER/$SPLIT.graph.edge.info
+        $PREFOLDER/train.graph.edge.info
     
     fairseq-preprocess \
     --source-lang "edge" \

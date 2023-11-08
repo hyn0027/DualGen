@@ -6,9 +6,9 @@ MAX_TOKENS=2048
 MAX_EPOCH=65
 UPDATE_FREQ=4
 LOG_INTERVAL=20
-MODEL_PATH=/home/hongyining/s_link/dualEnc_virtual/fairseq/training/SData1/checkpoint_best.pt
+MODEL_PATH=/home/hongyining/s_link/dualEnc_virtual/bart.large/model.pt
 DATA_BIN=/home/hongyining/s_link/dualEnc_virtual/AMR2.0bin
-SAVE_DIR=training/
+SAVE_DIR=training/new-2.0
 
 CUDA_VISIBLE_DEVICES=0,1,2,3 fairseq-train $DATA_BIN \
     --restore-file $MODEL_PATH \

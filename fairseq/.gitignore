@@ -143,5 +143,4 @@ outputs
 
 slurm*
 
-training/
-infer/
+*__pycache__*

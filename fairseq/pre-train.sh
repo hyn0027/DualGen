@@ -8,7 +8,7 @@ UPDATE_FREQ=8
 LOG_INTERVAL=20
 BART_PATH=/home/hongyining/s_link/dualEnc_virtual/bart.large/model.pt
 DATA_BIN=/home/hongyining/s_link/dualEnc_virtual/SDatabin
-SAVE_DIR=training/
+SAVE_DIR=training/new-pretrain
 
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 fairseq-train $DATA_BIN \
     --restore-file $BART_PATH \

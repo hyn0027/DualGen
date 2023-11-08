@@ -10,3 +10,6 @@ SData*
 ggw_data/
 
 *slurm*
+
+replicate/
+share/
