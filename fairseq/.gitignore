@@ -144,3 +144,5 @@ outputs
 slurm*
 
 *__pycache__*
+
+infer/
