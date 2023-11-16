@@ -28,6 +28,7 @@ from fairseq.distributed import fsdp_wrap
 from fairseq.modules import (
     LayerDropModuleList,
     transformer_layer,
+    SinusoidalPositionalEmbedding,
     GradMultiply,
 )
 import torch
@@ -244,6 +245,25 @@ class GraphToTextEncoder(TransformerEncoderBase):
         layer = fsdp_wrap(layer, min_num_params=min_params_to_wrap)
         return layer
     
+    def upgrade_state_dict_named(self, state_dict, name):
+        """Upgrade a (possibly old) state dict for new versions of fairseq."""
+        if isinstance(self.embed_positions, SinusoidalPositionalEmbedding):
+            weights_key = "{}.embed_positions.weights".format(name)
+            if weights_key in state_dict:
+                print("deleting {0}".format(weights_key))
+                del state_dict[weights_key]
+            state_dict[
+                "{}.embed_positions._float_tensor".format(name)
+            ] = torch.FloatTensor(1)
+        for i in range(self.num_layers):
+            # update layer norms
+            self.layers[i].upgrade_state_dict_named(
+                state_dict, "{}.layers.{}".format(name, i)
+            )
+            self.graph_layers[i].upgrade_state_dict_named(
+                state_dict, "{}.graph_layers.{}".format(name, i)
+            )
+
     def forward(
         self,
         src_tokens,
@@ -282,9 +302,6 @@ class GraphToTextEncoder(TransformerEncoderBase):
         if token_embeddings != None:
             print("not implemented at /home/hongyining/s_link/dualEnc_virtual/fairseq/fairseq/models/transformer/transformer_dual_encoder.py, forward")
             exit(-2)
-        # s2s_output = self.forward_scriptable(
-        #     self.graph_layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
-        # )
         s2s_output = self.forward_scriptable(
             self.layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
         )
