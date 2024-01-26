@@ -60,9 +60,14 @@ def read_graph_info(path):
         graph_info = f.readlines()
     data = []
     for item in graph_info:
+        edge_detail = item.split()[2:]
+        edge_detail = [int(id) for id in edge_detail]
+        edge = [(edge_detail[i * 2], edge_detail[i * 2 + 1]) for i in range(int(len(edge_detail) / 2))]
         data.append({
             "node": int(item.split()[0]),
-            "edge": int((len(item.split()) - 2) / 2)
+            "edge": int((len(item.split()) - 2) / 2),
+            "root": int(item.split()[1]),
+            "edge_detail": edge,
         })
     return data
 
@@ -85,117 +90,111 @@ def draw_graph(graph_info, prediction, target, name):
     plt.plot(node_cnt, regression_line, label="{}".format(name))
 
     print('-----------------------')
-    
-def draw_bar_graph(graph_info, prediction, target, name):
-    section0 = {
-        "tgt": [],
-        "pred": []
-    }
-    section1 = {
-        "tgt": [],
-        "pred": []
-    }
-    section2 = {
-        "tgt": [],
-        "pred": []
-    }
-    section3 = {
-        "tgt": [],
-        "pred": []
-    }
-    section4 = {
-        "tgt": [],
-        "pred": []
-    }
-    # section5 = {
-    #     "tgt": [],
-    #     "pred": []
-    # }
-    base = 1.02
-    d = 0.06
-    for graph, pred, tgt in zip(graph_info, prediction, target):
-        if graph['edge'] / graph['node'] < 0.9:
-            section0['tgt'].append(tgt)
-            section0['pred'].append(pred)
-        elif graph['edge']  / graph['node'] < 0.95:
-            section1['tgt'].append(tgt)
-            section1['pred'].append(pred)
-        elif graph['edge'] / graph['node'] <= 1.000001:
-            section2['tgt'].append(tgt)
-            section2['pred'].append(pred)
-        elif graph['edge'] / graph['node'] <= 1.05:
-            section3['tgt'].append(tgt)
-            section3['pred'].append(pred)
-        else:
-            section4['tgt'].append(tgt)
-            section4['pred'].append(pred)
-        # else:
-        #     section5['tgt'].append(tgt)
-        #     section5['pred'].append(pred)
-    print(len(section0["pred"]), len(section1["pred"]), len(section2["pred"]), len(section3["pred"]), len(section4["pred"]))
-    section0_bleu = eval_bleu(section0['tgt'], section0['pred'])
-    section1_bleu = eval_bleu(section1['tgt'], section1['pred'])
-    section2_bleu = eval_bleu(section2['tgt'], section2['pred'])
-    section3_bleu = eval_bleu(section3['tgt'], section3['pred'])
-    section4_bleu = eval_bleu(section4['tgt'], section4['pred'])
-    # section5_bleu = eval_bleu(section5['tgt'], section5['pred'])
-    print(section0_bleu, section1_bleu, section2_bleu, section3_bleu, section4_bleu)
-    return [section0_bleu, section1_bleu, section2_bleu, section3_bleu, section4_bleu]
+
+def fail_cases(pred, tgt, threshold=0.4):
+    fail_case = []
+    for i in range(len(pred)):
+        score = eval_bleu([tgt[i]], [pred[i]])
+        if score < threshold:
+            fail_case.append(
+                {
+                    "case_id": i,
+                    "score": score,
+                    "pred": pred[i],
+                    "tgt": tgt[i]
+                }
+            )
+    return fail_case
+
+
+def draw_histogram(pred, tgt, img_name):
+    score = []
+    for i in range(len(pred)):
+        score.append(eval_bleu([tgt[i]], [pred[i]]))
+    # clean plot
+    plt.clf()
+    plt.hist(score, bins=30)
+    plt.xlabel("BLEU Score")
+    plt.ylabel("Number of Sentences")
+    plt.title("BLEU Score Distribution")
+    plt.savefig(img_name)
+    plt.show()
+
+def depth_dfs(p, edge, visited, depth):
+    visited[p] = True
+    max_depth = depth
+    for e in edge:
+        if e[0] == p and not visited[e[1]]:
+            max_depth = max(depth, depth_dfs(e[1], edge, visited, depth + 1))
+    visited[p] = False
+    return max_depth
+
+def analysis_fail_cases(fail_cases, graph_info):
+    edge_num = []
+    node_num = []
+    edge_div_node = []
+    reentrance = []
+    depth = []
+    for item in fail_cases:
+        id = item['case_id']
+        graph_info_item = graph_info[id]
+        edge_num.append(graph_info_item['edge'])
+        node_num.append(graph_info_item['node'])
+        edge_div_node.append(graph_info_item['edge'] / graph_info_item['node'])
+        reentrance.append(graph_info_item['edge'] - graph_info_item['node'] + 1)
+        visited = [False for i in range(graph_info_item['node'])]
+        depth.append(depth_dfs(graph_info_item['root'], graph_info_item['edge_detail'], visited, 0))
+    df = pd.DataFrame({
+        "edge_num": edge_num,
+        "node_num": node_num,
+        "edge_div_node": edge_div_node,
+        "reentrance": reentrance,
+        "depth": depth
+    })
+    print(df.describe())
 
 def main():
     pred_gnn_folder, tgt_gnn_folder, pred_transformer_folder, tgt_transformer_folder, pred_dualenc_folder, tgt_dualenc_folder, graph_info = read_arguments()
     pred_gnn_sentences, tgt_gnn_sentences = readfile(pred_gnn_folder, tgt_gnn_folder)
     pred_transformer_sentences, tgt_transformer_sentences = readfile(pred_transformer_folder, tgt_transformer_folder)
     pred_dualenc_sentences, tgt_dualenc_sentences = readfile(pred_dualenc_folder, tgt_dualenc_folder)
-    # eval_bleu(target_sentences, pred_sentences)
-    # eval_chrf(target_sentences, pred_sentences)
-    # eval_meteor()
     graph_info = read_graph_info(graph_info)
-    plt.figure(figsize=(4, 2.2))
-    plt.rcParams['savefig.dpi'] = 600
+    
+    # plt.figure(figsize=(4, 2.2))
+    # plt.rcParams['savefig.dpi'] = 600
 
-    draw_graph(graph_info, pred_gnn_sentences, tgt_gnn_sentences, "g2s")
-    draw_graph(graph_info, pred_transformer_sentences, tgt_transformer_sentences, "s2s")
-    draw_graph(graph_info, pred_dualenc_sentences, tgt_dualenc_sentences, "DualGen")
+    # draw_graph(graph_info, pred_gnn_sentences, tgt_gnn_sentences, "g2s")
+    # draw_graph(graph_info, pred_transformer_sentences, tgt_transformer_sentences, "s2s")
+    # draw_graph(graph_info, pred_dualenc_sentences, tgt_dualenc_sentences, "DualGen")
     
-    plt.xlabel("Number of Edges / Number of Nodes")
-    plt.ylabel("BLEU Score")
-    plt.title("BLEU Score vs. Graph Complexity")
-    plt.legend()
-    plt.savefig("graph_complexity.png")
-    plt.show()
-    
+    # plt.xlabel("Number of Edges / Number of Nodes")
+    # plt.ylabel("BLEU Score")
+    # plt.title("BLEU Score vs. Graph Complexity")
+    # plt.legend()
+    # plt.savefig("graph_complexity.png")
+    # plt.show()
+
+    draw_histogram(pred_gnn_sentences, tgt_gnn_sentences, "gnn.png")
+    draw_histogram(pred_transformer_sentences, tgt_transformer_sentences, "transformer.png")
+    draw_histogram(pred_dualenc_sentences, tgt_dualenc_sentences, "dualenc.png")
+    gnn_bleu = eval_bleu(tgt_gnn_sentences, pred_gnn_sentences)
+    transformer_bleu = eval_bleu(tgt_transformer_sentences, pred_transformer_sentences)
+    dualenc_bleu = eval_bleu(tgt_dualenc_sentences, pred_dualenc_sentences)
+
+    gnn_severe_fail_cases = fail_cases(pred_gnn_sentences, tgt_gnn_sentences, 25)
+    transformer_severe_fail_cases = fail_cases(pred_transformer_sentences, tgt_transformer_sentences, 25)
+    dualenc_severe_fail_cases = fail_cases(pred_dualenc_sentences, tgt_dualenc_sentences, 25)
+
+    print("gnn severe fail cases: {number}".format(number=len(gnn_severe_fail_cases)))
+    print("transformer severe fail cases: {number}".format(number=len(transformer_severe_fail_cases)))
+    print("dualenc severe fail cases: {number}".format(number=len(dualenc_severe_fail_cases)))
+
+    analysis_fail_cases(gnn_severe_fail_cases, graph_info)
+    analysis_fail_cases(transformer_severe_fail_cases, graph_info)
+    analysis_fail_cases(dualenc_severe_fail_cases, graph_info)
+
+
     return
 
-    plt.figure(figsize=(6, 6))
-    plt.rcParams['savefig.dpi'] = 300
-    
-    gnn = draw_bar_graph(graph_info, pred_gnn_sentences, tgt_gnn_sentences, "gnn")
-    transformer = draw_bar_graph(graph_info, pred_transformer_sentences, tgt_transformer_sentences, "transformer")
-    dualenc = draw_bar_graph(graph_info, pred_dualenc_sentences, tgt_dualenc_sentences, "dualenc")
-
-    df = pd.DataFrame(
-        [
-            ['section0', gnn[0], transformer[0], dualenc[0], (dualenc[0] - transformer[0]) ],
-            ['section1', gnn[1], transformer[1], dualenc[1], (dualenc[1] - transformer[1]) ], 
-            ['section2', gnn[2], transformer[2], dualenc[2], (dualenc[2] - transformer[2]) ], 
-            ['section3', gnn[3], transformer[3], dualenc[3], (dualenc[3] - transformer[3]) ], 
-            ['section4', gnn[4], transformer[4], dualenc[4], (dualenc[4] - transformer[4]) ],
-        ], 
-        columns=['Model', 'GNN', 'Transformer', 'DualEnc', "Minus"]
-    )
-
-    df.plot(
-        x='Model', 
-        y=['GNN', 'Transformer', 'DualEnc', "Minus"], 
-        kind='bar',
-        title="BLEU Score vs. Graph Complexity",
-        stacked=False,
-        figsize=(6, 6),
-    )
-    plt.xticks(rotation=45)
-    plt.legend()
-    plt.savefig("bar.png")
-    plt.show()
-
-main()
+if __name__ == "__main__":
+    main()

@@ -88,14 +88,14 @@ class TransformerEncoderBase(FairseqEncoder):
         else:
             self.quant_noise = None
 
-        if self.encoder_layerdrop > 0.0:
-            self.layers = LayerDropModuleList(p=self.encoder_layerdrop)
-        else:
-            self.layers = nn.ModuleList([])
-        self.layers.extend(
-            [self.build_encoder_layer(cfg) for i in range(cfg.encoder.layers)]
-        )
-        self.num_layers = len(self.layers)
+        # if self.encoder_layerdrop > 0.0:
+        #     self.layers = LayerDropModuleList(p=self.encoder_layerdrop)
+        # else:
+        #     self.layers = nn.ModuleList([])
+        # self.layers.extend(
+        #     [self.build_encoder_layer(cfg) for i in range(cfg.encoder.layers)]
+        # )
+        self.num_layers = cfg.encoder.layers
 
         if cfg.encoder.normalize_before:
             self.layer_norm = LayerNorm(embed_dim, export=cfg.export)

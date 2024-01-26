@@ -1,12 +1,12 @@
-PREDICTION_GNN=/home/hongyining/s_link/dualEnc_virtual/ablation/DCGCN/predictions.txt
-TARGET_GNN=/home/hongyining/s_link/dualEnc_virtual/ablation/DCGCN/targets.txt
+PREDICTION_GNN=/home/hongyining/s_link/dualEnc_virtual/ablation/data/DCGCN/predictions.txt
+TARGET_GNN=/home/hongyining/s_link/dualEnc_virtual/ablation/data//DCGCN/targets.txt
 
-PREDICTION_TRANSFORMER=/home/hongyining/s_link/dualEnc_virtual/ablation/transformer/predictions.txt
-TARGET_TRANSFORMER=/home/hongyining/s_link/dualEnc_virtual/ablation/transformer/targets.txt
+PREDICTION_TRANSFORMER=/home/hongyining/s_link/dualEnc_virtual/ablation/data/transformer/predictions.txt
+TARGET_TRANSFORMER=/home/hongyining/s_link/dualEnc_virtual/ablation/data/transformer/targets.txt
 
 
-PREDICTION_DUALENC=/home/hongyining/s_link/dualEnc_virtual/ablation/dualEnc/predictions.txt
-TARGET_DUALENC=/home/hongyining/s_link/dualEnc_virtual/ablation/dualEnc/targets.txt
+PREDICTION_DUALENC=/home/hongyining/s_link/dualEnc_virtual/ablation/data/dualEnc/predictions.txt
+TARGET_DUALENC=/home/hongyining/s_link/dualEnc_virtual/ablation/data/dualEnc/targets.txt
 
 GRAPH_INFO=/home/hongyining/s_link/dualEnc_virtual/AMR2.0/dev.graph.info
 

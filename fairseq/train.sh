@@ -7,8 +7,8 @@ MAX_EPOCH=65
 UPDATE_FREQ=4
 LOG_INTERVAL=20
 MODEL_PATH=/home/hongyining/s_link/dualEnc_virtual/bart.large/model.pt
-DATA_BIN=/home/hongyining/s_link/dualEnc_virtual/AMR2.0bin
-SAVE_DIR=training/new-2.0
+DATA_BIN=/home/hongyining/s_link/dualEnc_virtual/AMR3.0bin
+SAVE_DIR=training/graph-no-special-pretrain-3.0
 
 CUDA_VISIBLE_DEVICES=0,1,2,3 fairseq-train $DATA_BIN \
     --restore-file $MODEL_PATH \

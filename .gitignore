@@ -3,6 +3,8 @@ bin/
 lib/
 pyvenv*
 AMR*/
+BIO*/
+LP*/
 bart.*/
 dual*/
 fairseq/checkpoints*/
