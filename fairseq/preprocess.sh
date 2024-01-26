@@ -1,12 +1,12 @@
 #!/bin/sh
-INPUTFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR2.0
-OUTPUTFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR2.0BPE
-PREFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR2.0BPE_PRE
-BINFOLDER=/home/hongyining/s_link/dualEnc_virtual/AMR2.0bin
+INPUTFOLDER=/home/hongyining/s_link/dualEnc_virtual/BIO
+OUTPUTFOLDER=/home/hongyining/s_link/dualEnc_virtual/BIOBPE
+PREFOLDER=/home/hongyining/s_link/dualEnc_virtual/BIOBPE_PRE
+BINFOLDER=/home/hongyining/s_link/dualEnc_virtual/BIObin
 
 # DATA_PATH=/home/hongyining/s_link/dualEnc_virtual/silver_data
-DATA_PATH=/home/hongyining/s_link/abstract_meaning_representation_amr_2.0/data/alignments/split
-OUTPUT_PATH=/home/hongyining/s_link/dualEnc_virtual/AMR2.0
+DATA_PATH=/data_new/private/hongyining/dualEnc_virtual/bio
+OUTPUT_PATH=/home/hongyining/s_link/dualEnc_virtual/BIO
 ONLY_TRAIN=false # only process data in $DATA_PATH/training
 
 cd ../

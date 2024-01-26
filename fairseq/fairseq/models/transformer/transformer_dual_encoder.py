@@ -257,9 +257,9 @@ class GraphToTextEncoder(TransformerEncoderBase):
             ] = torch.FloatTensor(1)
         for i in range(self.num_layers):
             # update layer norms
-            self.layers[i].upgrade_state_dict_named(
-                state_dict, "{}.layers.{}".format(name, i)
-            )
+            # self.layers[i].upgrade_state_dict_named(
+            #     state_dict, "{}.layers.{}".format(name, i)
+            # )
             self.graph_layers[i].upgrade_state_dict_named(
                 state_dict, "{}.graph_layers.{}".format(name, i)
             )
@@ -302,14 +302,14 @@ class GraphToTextEncoder(TransformerEncoderBase):
         if token_embeddings != None:
             print("not implemented at /home/hongyining/s_link/dualEnc_virtual/fairseq/fairseq/models/transformer/transformer_dual_encoder.py, forward")
             exit(-2)
-        s2s_output = self.forward_scriptable(
-            self.layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
-        )
+        # s2s_output = self.forward_scriptable(
+        #     self.layers, src_tokens, src_lengths, return_all_hiddens, token_embeddings
+        # )
         # print(src_tokens.size())
         g2s_output = self.graph_foward_scriptable(self.graph_layers, graph_structures, nodes, nodes_info, edges, edges_info, return_all_hiddens)
-        # return g2s_output
+        return g2s_output
         # return s2s_output
-        return self.combine_results(s2s_output, g2s_output) # TODO
+        # return self.combine_results(s2s_output, g2s_output) # TODO
 
     def dfs(self, p, graph_structure):
         res = [{"type": "node", "id": p}]

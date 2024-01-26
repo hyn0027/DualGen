@@ -596,14 +596,14 @@ class Trainer(object):
                 except:
                     import copy
                     new_state = copy.deepcopy(state["model"]) 
-                    for key in state["model"]:
-                        if key.find("encoder.layers") != -1:
-                            new_state[key.replace(
-                                    "encoder.layers",
-                                    "encoder.graph_layers")
-                                ] = state["model"][key].clone()
-                        else:
-                            new_state[key] = copy.deepcopy(state["model"][key]) # TODO: clone? deepcopy?
+                    # for key in state["model"]:
+                    #     if key.find("encoder.layers") != -1:
+                    #         new_state[key.replace(
+                    #                 "encoder.layers",
+                    #                 "encoder.graph_layers")
+                    #             ] = state["model"][key].clone()
+                    #     else:
+                    #         new_state[key] = copy.deepcopy(state["model"][key]) # TODO: clone? deepcopy?
                     self.model.load_state_dict(
                         new_state, strict=False, model_cfg=self.cfg.model
                     )
